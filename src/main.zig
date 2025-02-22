@@ -1,9 +1,7 @@
 const std = @import("std");
 const mem = std.mem;
 
-pub fn main() void {
-    std.debug.print("Hello, dalia!", .{});
-}
+pub fn main() void {}
 
 /// Token identifies a text and the kind of token it represents.
 const Token = struct {
@@ -84,5 +82,46 @@ test "test token" {
         const actual = try token.fmt(test_allocator);
         defer test_allocator.free(actual);
         try testing.expectEqualStrings(tc.expected, actual);
+    }
+}
+
+const eof = 0;
+
+/// Cursor allows traversing through an input String character by character while lexing.
+const Cursor = struct {
+    input: []const u8,
+    /// The input String being processed.
+    pointer: usize,
+    /// The current character being processed.
+    current_char: []const u8,
+
+    pub fn init(input: []const u8, pointer: usize, current_char: []const u8) Cursor {
+        return .{ .input = input, .pointer = pointer, .current_char = current_char };
+    }
+};
+
+test "test cursor" {
+    const testing = std.testing;
+
+    const test_cases = [_]struct {
+        args: struct {
+            input: []const u8,
+            pointer: usize,
+            current_char: []const u8,
+        },
+        expected_input: []const u8 = "",
+        expected_pointer: usize = eof,
+        expected_current_char: []const u8 = "",
+    }{
+        .{
+            .args = .{ .input = "", .pointer = eof, .current_char = "" },
+        },
+    };
+
+    for (test_cases) |tc| {
+        const cursor = Cursor.init(tc.args.input, tc.args.pointer, tc.args.current_char);
+        try testing.expectEqualStrings(tc.expected_input, cursor.input);
+        try testing.expect(cursor.pointer == tc.expected_pointer);
+        try testing.expectEqualStrings(cursor.current_char, tc.expected_current_char);
     }
 }
