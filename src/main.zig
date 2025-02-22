@@ -159,9 +159,8 @@ test "test cursor" {
     for (test_cases) |tc| {
         var cursor = Cursor.init(tc.args.input, tc.args.pointer, tc.args.current_char);
         var i: u8 = 0;
-        while (i < tc.consume_count) {
+        while (i < tc.consume_count) : (i += 1) {
             cursor.consume();
-            i += 1;
         }
         try testing.expectEqualStrings(tc.expected_input, cursor.input);
         try testing.expectEqual(tc.expected_pointer, cursor.pointer);
