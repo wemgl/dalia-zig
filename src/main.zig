@@ -85,7 +85,7 @@ test "test token" {
     }
 }
 
-const eof = 0;
+const eof: u8 = 0;
 
 /// Cursor allows traversing through an input String character by character while lexing.
 const Cursor = struct {
@@ -93,10 +93,20 @@ const Cursor = struct {
     /// The input String being processed.
     pointer: usize,
     /// The current character being processed.
-    current_char: []const u8,
+    current_char: u8,
 
-    pub fn init(input: []const u8, pointer: usize, current_char: []const u8) Cursor {
+    pub fn init(input: []const u8, pointer: usize, current_char: u8) Cursor {
         return .{ .input = input, .pointer = pointer, .current_char = current_char };
+    }
+
+    /// Consumes one character moving forward and detects "end of file".
+    pub fn consume(self: *Cursor) void {
+        self.pointer += 1;
+        if (self.pointer >= self.input.len) {
+            self.current_char = eof;
+            return;
+        }
+        self.current_char = self.input[self.pointer];
     }
 };
 
@@ -107,21 +117,53 @@ test "test cursor" {
         args: struct {
             input: []const u8,
             pointer: usize,
-            current_char: []const u8,
+            current_char: u8,
         },
         expected_input: []const u8 = "",
-        expected_pointer: usize = eof,
-        expected_current_char: []const u8 = "",
+        expected_pointer: usize = 0,
+        expected_current_char: u8 = '0',
+        consume_count: u8 = 1,
     }{
+        // Test initialize cursor.
         .{
-            .args = .{ .input = "", .pointer = eof, .current_char = "" },
+            .args = .{ .input = "", .pointer = 0, .current_char = '0' },
+            .consume_count = 0,
+        },
+        // Test cursor can consume 2 characters.
+        .{
+            .args = .{ .input = "test", .pointer = 0, .current_char = '0' },
+            .expected_input = "test",
+            .expected_pointer = 2,
+            .expected_current_char = 's',
+            .consume_count = 2,
+        },
+        // Test cursor can consume characters until final character of input.
+        .{
+            .args = .{ .input = "test", .pointer = 0, .current_char = '0' },
+            .expected_input = "test",
+            .expected_pointer = 3,
+            .expected_current_char = 't',
+            .consume_count = 3,
+        },
+        // Test cursor can consume all characters in input.
+        .{
+            .args = .{ .input = "test", .pointer = 0, .current_char = '0' },
+            .expected_input = "test",
+            .expected_pointer = 4,
+            .expected_current_char = 0,
+            .consume_count = 4,
         },
     };
 
     for (test_cases) |tc| {
-        const cursor = Cursor.init(tc.args.input, tc.args.pointer, tc.args.current_char);
+        var cursor = Cursor.init(tc.args.input, tc.args.pointer, tc.args.current_char);
+        var i: u8 = 0;
+        while (i < tc.consume_count) {
+            cursor.consume();
+            i += 1;
+        }
         try testing.expectEqualStrings(tc.expected_input, cursor.input);
-        try testing.expect(cursor.pointer == tc.expected_pointer);
-        try testing.expectEqualStrings(cursor.current_char, tc.expected_current_char);
+        try testing.expectEqual(tc.expected_pointer, cursor.pointer);
+        try testing.expectEqual(tc.expected_current_char, cursor.current_char);
     }
 }
