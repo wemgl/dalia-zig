@@ -53,28 +53,28 @@ test "test token" {
         expected: []const u8,
     }{
         .{
-            .args = .{ .kind = .eof, .text = "<EOF>" },
-            .expected = "<'<EOF>', <EOF>>",
+            .args = .{ .kind = .eof, .text = "0" },
+            .expected = "<'0', <EOF>>",
         },
         .{
-            .args = .{ .kind = .lbrack, .text = "LBRACK" },
-            .expected = "<'LBRACK', LBRACK>",
+            .args = .{ .kind = .lbrack, .text = "[" },
+            .expected = "<'[', LBRACK>",
         },
         .{
-            .args = .{ .kind = .rbrack, .text = "RBRACK" },
-            .expected = "<'RBRACK', RBRACK>",
+            .args = .{ .kind = .rbrack, .text = "]" },
+            .expected = "<']', RBRACK>",
         },
         .{
-            .args = .{ .kind = .alias, .text = "ALIAS" },
-            .expected = "<'ALIAS', ALIAS>",
+            .args = .{ .kind = .alias, .text = "alias" },
+            .expected = "<'alias', ALIAS>",
         },
         .{
-            .args = .{ .kind = .path, .text = "PATH" },
-            .expected = "<'PATH', PATH>",
+            .args = .{ .kind = .path, .text = "/some/path" },
+            .expected = "<'/some/path', PATH>",
         },
         .{
-            .args = .{ .kind = .glob, .text = "GLOB" },
-            .expected = "<'GLOB', GLOB>",
+            .args = .{ .kind = .glob, .text = "*" },
+            .expected = "<'*', GLOB>",
         },
     };
 
