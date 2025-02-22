@@ -15,6 +15,7 @@ const Token = struct {
         return .{ .kind = kind, .text = text };
     }
 
+    /// Formats this Token for display.
     pub fn fmt(self: Token, allocator: mem.Allocator) ![]const u8 {
         const idx = @intFromEnum(self.kind);
         return std.fmt.allocPrint(allocator, "<'{s}', {s}>", .{
