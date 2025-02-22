@@ -7,8 +7,12 @@ pub fn main() void {
     std.debug.print("Hello, dalia!", .{});
 }
 
+/// Token identifies a text and the kind of token it represents.
 const Token = struct {
+    /// The specific atom this token represents.
     kind: TokenType,
+
+    /// The particular text associated with this token when it was parsed.
     text: []const u8,
 
     pub fn init(kind: TokenType, text: []const u8) Token {
