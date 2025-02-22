@@ -6,12 +6,12 @@ pub fn main() void {}
 /// Token identifies a text and the kind of token it represents.
 const Token = struct {
     /// The specific atom this token represents.
-    kind: TokenType,
+    kind: TokenKind,
 
     /// The particular text associated with this token when it was parsed.
     text: []const u8,
 
-    pub fn init(kind: TokenType, text: []const u8) Token {
+    pub fn init(kind: TokenKind, text: []const u8) Token {
         return .{ .kind = kind, .text = text };
     }
 
@@ -35,7 +35,7 @@ const token_names = [_][]const u8{
     "GLOB",
 };
 
-const TokenType = enum(u8) {
+const TokenKind = enum(u8) {
     eof = 1,
     lbrack,
     rbrack,
@@ -49,7 +49,7 @@ test "test token" {
     const test_allocator = std.testing.allocator;
 
     const test_cases = [_]struct {
-        args: struct { kind: TokenType, text: []const u8 },
+        args: struct { kind: TokenKind, text: []const u8 },
         expected: []const u8,
     }{
         .{
