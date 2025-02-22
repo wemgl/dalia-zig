@@ -45,37 +45,37 @@ const TokenType = enum(u8) {
     glob,
 };
 
-test "token display" {
+test "test token" {
     const testing = std.testing;
     const test_allocator = std.testing.allocator;
 
     const test_cases = [_]struct {
         args: struct { kind: TokenType, text: []const u8 },
-        actual: []const u8,
+        expected: []const u8,
     }{
         .{
             .args = .{ .kind = .eof, .text = "<EOF>" },
-            .actual = "<'<EOF>', <EOF>>",
+            .expected = "<'<EOF>', <EOF>>",
         },
         .{
             .args = .{ .kind = .lbrack, .text = "LBRACK" },
-            .actual = "<'LBRACK', LBRACK>",
+            .expected = "<'LBRACK', LBRACK>",
         },
         .{
             .args = .{ .kind = .rbrack, .text = "RBRACK" },
-            .actual = "<'RBRACK', RBRACK>",
+            .expected = "<'RBRACK', RBRACK>",
         },
         .{
             .args = .{ .kind = .alias, .text = "ALIAS" },
-            .actual = "<'ALIAS', ALIAS>",
+            .expected = "<'ALIAS', ALIAS>",
         },
         .{
             .args = .{ .kind = .path, .text = "PATH" },
-            .actual = "<'PATH', PATH>",
+            .expected = "<'PATH', PATH>",
         },
         .{
             .args = .{ .kind = .glob, .text = "GLOB" },
-            .actual = "<'GLOB', GLOB>",
+            .expected = "<'GLOB', GLOB>",
         },
     };
 
@@ -83,6 +83,6 @@ test "token display" {
         const token = Token.init(tc.args.kind, tc.args.text);
         const actual = try token.fmt(test_allocator);
         defer test_allocator.free(actual);
-        try testing.expectEqualStrings(tc.actual, actual);
+        try testing.expectEqualStrings(tc.expected, actual);
     }
 }
