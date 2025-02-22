@@ -19,12 +19,12 @@ const Token = struct {
         const idx = @intFromEnum(self.kind);
         return std.fmt.allocPrint(allocator, "<'{s}', {s}>", .{
             self.text,
-            TokenNames[idx],
+            token_names[idx],
         });
     }
 };
 
-const TokenNames = [_][]const u8{
+const token_names = [_][]const u8{
     "n/a",
     "<EOF>",
     "LBRACK",
