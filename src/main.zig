@@ -1,7 +1,5 @@
 const std = @import("std");
 const mem = std.mem;
-const testing = std.testing;
-const test_allocator = std.testing.allocator;
 
 pub fn main() void {
     std.debug.print("Hello, dalia!", .{});
@@ -48,6 +46,9 @@ const TokenType = enum(u8) {
 };
 
 test "token display" {
+    const testing = std.testing;
+    const test_allocator = std.testing.allocator;
+
     const test_cases = [_]struct {
         args: struct { kind: TokenType, text: []const u8 },
         actual: []const u8,
