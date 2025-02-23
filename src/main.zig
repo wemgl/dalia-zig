@@ -1,5 +1,6 @@
 const std = @import("std");
 const mem = std.mem;
+const ascii = std.ascii;
 const ArrayList = std.ArrayList;
 
 pub fn main() void {}
@@ -46,6 +47,9 @@ const TokenKind = enum(u8) {
 };
 
 const eof: u8 = 0;
+const underscore = '_';
+const hyphen = '-';
+const asterisk = '*';
 
 /// Cursor allows traversing through an input String character by character while lexing.
 const Cursor = struct {
@@ -99,6 +103,16 @@ const Lexer = struct {
         return !(self.cursor.current_char == '\u{ff}' or
             self.cursor.current_char == '0' or
             self.cursor.current_char == '\n');
+    }
+
+    pub fn is_alias_name(self: Lexer) bool {
+        return ascii.isAlphanumeric(self.cursor.current_char) or
+            self.cursor.current_char == underscore or
+            self.cursor.current_char == hyphen;
+    }
+
+    pub fn is_glob_alias(self: Lexer) bool {
+        return self.cursor.current_char == asterisk;
     }
 };
 
@@ -249,5 +263,44 @@ test "expect Lexer detects end-of-line" {
         const lexer = try Lexer.init(testing.allocator, "test", 0, tc.arg);
         defer lexer.deinit();
         try testing.expectEqual(tc.expected, lexer.is_not_end_of_line());
+    }
+}
+
+test "expect Lexer can check characters belong to aliases" {
+    const testing = std.testing;
+
+    const test_cases = [_]struct {
+        arg: u8,
+        expected: bool = false,
+    }{
+        .{ .arg = 't', .expected = true },
+        .{ .arg = 'T', .expected = true },
+        .{ .arg = '0', .expected = true },
+        .{ .arg = '\n' },
+        .{ .arg = '\u{ff}' },
+    };
+
+    for (test_cases) |tc| {
+        const lexer = try Lexer.init(testing.allocator, "test", 0, tc.arg);
+        defer lexer.deinit();
+        try testing.expectEqual(tc.expected, lexer.is_alias_name());
+    }
+}
+
+test "expect Lexer can check asterisk is for glob aliases" {
+    const testing = std.testing;
+
+    const test_cases = [_]struct {
+        arg: u8,
+        expected: bool,
+    }{
+        .{ .arg = 't', .expected = false },
+        .{ .arg = '*', .expected = true },
+    };
+
+    for (test_cases) |tc| {
+        const lexer = try Lexer.init(testing.allocator, "test", 0, tc.arg);
+        defer lexer.deinit();
+        try testing.expectEqual(tc.expected, lexer.is_glob_alias());
     }
 }
