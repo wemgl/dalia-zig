@@ -1,5 +1,6 @@
 const std = @import("std");
 const mem = std.mem;
+const ArrayList = std.ArrayList;
 
 pub fn main() void {}
 
@@ -44,7 +45,58 @@ const TokenKind = enum(u8) {
     glob,
 };
 
-test "test token" {
+const eof: u8 = 0;
+
+/// Cursor allows traversing through an input String character by character while lexing.
+const Cursor = struct {
+    input: []const u8,
+    /// The input String being processed.
+    pointer: usize,
+    /// The current character being processed.
+    current_char: u8,
+
+    pub fn init(input: []const u8, pointer: usize, current_char: u8) Cursor {
+        return .{ .input = input, .pointer = pointer, .current_char = current_char };
+    }
+
+    /// Consumes one character moving forward and detects "end of file".
+    pub fn consume(self: *Cursor) void {
+        self.pointer += 1;
+        if (self.pointer >= self.input.len) {
+            self.current_char = eof;
+            return;
+        }
+        self.current_char = self.input[self.pointer];
+    }
+};
+
+/// Creates and identifies tokens using the underlying cursor.
+const Lexer = struct {
+    cursor: Cursor,
+    token_names: ArrayList([]const u8),
+
+    pub fn init(allocator: mem.Allocator, input: []const u8, pointer: usize, char: u8) !Lexer {
+        var all_tokens = ArrayList([]const u8).init(allocator);
+        for (token_names) |tn| {
+            try all_tokens.append(tn);
+        }
+        return .{
+            .cursor = Cursor.init(input, pointer, char),
+            .token_names = all_tokens,
+        };
+    }
+
+    pub fn deinit(self: Lexer) void {
+        self.token_names.deinit();
+    }
+
+    pub fn token_name_at_index(self: Lexer, i: usize) []const u8 {
+        if (i >= self.token_names.items.len) return "";
+        return self.token_names.items[i];
+    }
+};
+
+test "test Token formatting" {
     const testing = std.testing;
     const test_allocator = std.testing.allocator;
 
@@ -86,32 +138,7 @@ test "test token" {
     }
 }
 
-const eof: u8 = 0;
-
-/// Cursor allows traversing through an input String character by character while lexing.
-const Cursor = struct {
-    input: []const u8,
-    /// The input String being processed.
-    pointer: usize,
-    /// The current character being processed.
-    current_char: u8,
-
-    pub fn init(input: []const u8, pointer: usize, current_char: u8) Cursor {
-        return .{ .input = input, .pointer = pointer, .current_char = current_char };
-    }
-
-    /// Consumes one character moving forward and detects "end of file".
-    pub fn consume(self: *Cursor) void {
-        self.pointer += 1;
-        if (self.pointer >= self.input.len) {
-            self.current_char = eof;
-            return;
-        }
-        self.current_char = self.input[self.pointer];
-    }
-};
-
-test "test cursor" {
+test "test Cursor consumes" {
     const testing = std.testing;
 
     const test_cases = [_]struct {
@@ -165,5 +192,36 @@ test "test cursor" {
         try testing.expectEqualStrings(tc.expected_input, cursor.input);
         try testing.expectEqual(tc.expected_pointer, cursor.pointer);
         try testing.expectEqual(tc.expected_current_char, cursor.current_char);
+    }
+}
+
+test "test Lexer initialization" {
+    const testing = std.testing;
+    const lexer = try Lexer.init(testing.allocator, "test", 0, 't');
+    defer lexer.deinit();
+
+    try testing.expectEqualDeep(token_names[0..], lexer.token_names.items);
+    try testing.expectEqualStrings("test", lexer.cursor.input);
+    try testing.expectEqual(0, lexer.cursor.pointer);
+    try testing.expectEqual('t', lexer.cursor.current_char);
+}
+
+test "test Lexer returns token names by index" {
+    const testing = std.testing;
+    const lexer = try Lexer.init(testing.allocator, "test", 0, 't');
+    defer lexer.deinit();
+
+    const test_cases = [_]struct {
+        arg: usize,
+        expected: []const u8,
+    }{
+        .{ .arg = 0, .expected = "n/a" },
+        .{ .arg = 2, .expected = "LBRACK" },
+        .{ .arg = token_names.len, .expected = "" },
+    };
+
+    for (test_cases) |tc| {
+        const token_name = lexer.token_name_at_index(tc.arg);
+        try testing.expectEqualStrings(tc.expected, token_name);
     }
 }
