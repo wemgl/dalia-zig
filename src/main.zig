@@ -133,6 +133,13 @@ const Lexer = struct {
             try list.append(self.cursor.current_char);
             self.cursor.consume();
         }
+        return .{
+            .allocator = allocator,
+            .kind = .alias,
+            .text = try list.toOwnedSlice(),
+        };
+    }
+
     pub fn path(self: *Lexer, allocator: mem.Allocator) !Token {
         var list = ArrayList(u8).init(allocator);
         while (self.is_not_end_of_line()) {
@@ -285,7 +292,7 @@ test "expect Lexer detects end-of-line" {
         expected: bool = false,
     }{
         .{ .arg = 't', .expected = true },
-        .{ .arg = '0' },
+        .{ .arg = eof },
         .{ .arg = '\n' },
         .{ .arg = '\u{ff}' },
     };
