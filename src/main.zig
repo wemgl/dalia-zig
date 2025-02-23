@@ -13,8 +13,14 @@ const Token = struct {
     /// The particular text associated with this token when it was parsed.
     text: []const u8,
 
-    pub fn init(kind: TokenKind, text: []const u8) Token {
-        return .{ .kind = kind, .text = text };
+    allocator: mem.Allocator,
+
+    pub fn init(allocator: mem.Allocator, kind: TokenKind, text: []const u8) Token {
+        return .{ .allocator = allocator, .kind = kind, .text = text };
+    }
+
+    pub fn deinit(self: *Token) void {
+        self.allocator.free(self.text);
     }
 
     /// Formats this Token for display.
@@ -120,6 +126,19 @@ const Lexer = struct {
             self.cursor.consume();
         }
     }
+
+    pub fn alias(self: *Lexer, allocator: mem.Allocator) !Token {
+        var list = ArrayList(u8).init(allocator);
+        while (self.is_alias_name()) {
+            try list.append(self.cursor.current_char);
+            self.cursor.consume();
+        }
+        return .{
+            .allocator = allocator,
+            .kind = .alias,
+            .text = try list.toOwnedSlice()
+        };
+    }
 };
 
 test "expect Token formatting" {
@@ -157,7 +176,7 @@ test "expect Token formatting" {
     };
 
     for (test_cases) |tc| {
-        const token = Token.init(tc.args.kind, tc.args.text);
+        const token = Token.init(testing.allocator,tc.args.kind, tc.args.text);
         const actual = try token.fmt(test_allocator);
         defer test_allocator.free(actual);
         try testing.expectEqualStrings(tc.expected, actual);
@@ -330,4 +349,18 @@ test "expect Lexer can consume whitespace" {
         lexer.whitespace();
         try testing.expectEqual(tc.expected, lexer.cursor.current_char);
     }
+}
+
+test "expect Lexer to consume aliases" {
+    const testing = std.testing;
+    const allocator = testing.allocator;
+
+    var lexer = try Lexer.init(testing.allocator, "test", 0, 't');
+    defer lexer.deinit();
+
+    var actual = try lexer.alias(allocator);
+    defer actual.deinit();
+
+    try testing.expectEqualStrings("test", actual.text);
+    try testing.expectEqual(TokenKind.alias, actual.kind);
 }
