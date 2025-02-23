@@ -107,7 +107,7 @@ const Lexer = struct {
 
     pub fn is_not_end_of_line(self: Lexer) bool {
         return !(self.cursor.current_char == '\u{ff}' or
-            self.cursor.current_char == '0' or
+            self.cursor.current_char == eof or
             self.cursor.current_char == '\n');
     }
 
@@ -133,10 +133,16 @@ const Lexer = struct {
             try list.append(self.cursor.current_char);
             self.cursor.consume();
         }
+    pub fn path(self: *Lexer, allocator: mem.Allocator) !Token {
+        var list = ArrayList(u8).init(allocator);
+        while (self.is_not_end_of_line()) {
+            try list.append(self.cursor.current_char);
+            self.cursor.consume();
+        }
         return .{
             .allocator = allocator,
-            .kind = .alias,
-            .text = try list.toOwnedSlice()
+            .kind = .path,
+            .text = try list.toOwnedSlice(),
         };
     }
 };
@@ -176,7 +182,7 @@ test "expect Token formatting" {
     };
 
     for (test_cases) |tc| {
-        const token = Token.init(testing.allocator,tc.args.kind, tc.args.text);
+        const token = Token.init(testing.allocator, tc.args.kind, tc.args.text);
         const actual = try token.fmt(test_allocator);
         defer test_allocator.free(actual);
         try testing.expectEqualStrings(tc.expected, actual);
@@ -363,4 +369,19 @@ test "expect Lexer to consume aliases" {
 
     try testing.expectEqualStrings("test", actual.text);
     try testing.expectEqual(TokenKind.alias, actual.kind);
+}
+
+test "expect Lexer to consume paths" {
+    const testing = std.testing;
+    const allocator = testing.allocator;
+
+    const input = "/some/test/path";
+    var lexer = try Lexer.init(testing.allocator, input, 0, input[0]);
+    defer lexer.deinit();
+
+    var actual = try lexer.path(allocator);
+    defer actual.deinit();
+
+    try testing.expectEqualStrings("/some/test/path", actual.text);
+    try testing.expectEqual(TokenKind.path, actual.kind);
 }
