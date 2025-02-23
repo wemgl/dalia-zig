@@ -94,9 +94,15 @@ const Lexer = struct {
         if (i >= self.token_names.items.len) return "";
         return self.token_names.items[i];
     }
+
+    pub fn is_not_end_of_line(self: Lexer) bool {
+        return !(self.cursor.current_char == '\u{ff}' or
+            self.cursor.current_char == '0' or
+            self.cursor.current_char == '\n');
+    }
 };
 
-test "test Token formatting" {
+test "expect Token formatting" {
     const testing = std.testing;
     const test_allocator = std.testing.allocator;
 
@@ -138,7 +144,7 @@ test "test Token formatting" {
     }
 }
 
-test "test Cursor consumes" {
+test "expect Cursor consumes" {
     const testing = std.testing;
 
     const test_cases = [_]struct {
@@ -195,7 +201,7 @@ test "test Cursor consumes" {
     }
 }
 
-test "test Lexer initialization" {
+test "expect Lexer initialization" {
     const testing = std.testing;
     const lexer = try Lexer.init(testing.allocator, "test", 0, 't');
     defer lexer.deinit();
@@ -206,7 +212,7 @@ test "test Lexer initialization" {
     try testing.expectEqual('t', lexer.cursor.current_char);
 }
 
-test "test Lexer returns token names by index" {
+test "expect Lexer returns token names by index" {
     const testing = std.testing;
     const lexer = try Lexer.init(testing.allocator, "test", 0, 't');
     defer lexer.deinit();
@@ -223,5 +229,25 @@ test "test Lexer returns token names by index" {
     for (test_cases) |tc| {
         const token_name = lexer.token_name_at_index(tc.arg);
         try testing.expectEqualStrings(tc.expected, token_name);
+    }
+}
+
+test "expect Lexer detects end-of-line" {
+    const testing = std.testing;
+
+    const test_cases = [_]struct {
+        arg: u8,
+        expected: bool = false,
+    }{
+        .{ .arg = 't', .expected = true },
+        .{ .arg = '0' },
+        .{ .arg = '\n' },
+        .{ .arg = '\u{ff}' },
+    };
+
+    for (test_cases) |tc| {
+        const lexer = try Lexer.init(testing.allocator, "test", 0, tc.arg);
+        defer lexer.deinit();
+        try testing.expectEqual(tc.expected, lexer.is_not_end_of_line());
     }
 }
