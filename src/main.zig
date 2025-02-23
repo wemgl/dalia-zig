@@ -1,5 +1,6 @@
 const std = @import("std");
 const mem = std.mem;
+const Allocator = mem.Allocator;
 const ascii = std.ascii;
 const ArrayList = std.ArrayList;
 
@@ -13,9 +14,9 @@ const Token = struct {
     /// The particular text associated with this token when it was parsed.
     text: []const u8,
 
-    allocator: mem.Allocator,
+    allocator: Allocator,
 
-    pub fn init(allocator: mem.Allocator, kind: TokenKind, text: []const u8) Token {
+    pub fn init(allocator: Allocator, kind: TokenKind, text: []const u8) Token {
         return .{ .allocator = allocator, .kind = kind, .text = text };
     }
 
@@ -24,7 +25,7 @@ const Token = struct {
     }
 
     /// Formats this Token for display.
-    pub fn fmt(self: Token, allocator: mem.Allocator) ![]const u8 {
+    pub fn fmt(self: Token, allocator: Allocator) ![]const u8 {
         const idx = @intFromEnum(self.kind);
         return std.fmt.allocPrint(allocator, "<'{s}', {s}>", .{
             self.text,
@@ -85,7 +86,7 @@ const Lexer = struct {
     cursor: Cursor,
     token_names: ArrayList([]const u8),
 
-    pub fn init(allocator: mem.Allocator, input: []const u8, pointer: usize, char: u8) !Lexer {
+    pub fn init(allocator: Allocator, input: []const u8, pointer: usize, char: u8) !Lexer {
         var all_tokens = ArrayList([]const u8).init(allocator);
         for (token_names) |tn| {
             try all_tokens.append(tn);
@@ -127,7 +128,7 @@ const Lexer = struct {
         }
     }
 
-    pub fn alias(self: *Lexer, allocator: mem.Allocator) !Token {
+    pub fn alias(self: *Lexer, allocator: Allocator) !Token {
         var list = ArrayList(u8).init(allocator);
         while (self.is_alias_name()) {
             try list.append(self.cursor.current_char);
@@ -140,7 +141,7 @@ const Lexer = struct {
         };
     }
 
-    pub fn path(self: *Lexer, allocator: mem.Allocator) !Token {
+    pub fn path(self: *Lexer, allocator: Allocator) !Token {
         var list = ArrayList(u8).init(allocator);
         while (self.is_not_end_of_line()) {
             try list.append(self.cursor.current_char);
@@ -149,6 +150,16 @@ const Lexer = struct {
         return .{
             .allocator = allocator,
             .kind = .path,
+            .text = try list.toOwnedSlice(),
+        };
+    }
+
+    pub fn glob(self: *Lexer, allocator: Allocator) !Token {
+        var list = ArrayList(u8).init(allocator);
+        try list.append(self.cursor.current_char);
+        return .{
+            .allocator = allocator,
+            .kind = .glob,
             .text = try list.toOwnedSlice(),
         };
     }
@@ -364,7 +375,7 @@ test "expect Lexer can consume whitespace" {
     }
 }
 
-test "expect Lexer to consume aliases" {
+test "expect Lexer to consume alias tokens" {
     const testing = std.testing;
     const allocator = testing.allocator;
 
@@ -378,7 +389,7 @@ test "expect Lexer to consume aliases" {
     try testing.expectEqual(TokenKind.alias, actual.kind);
 }
 
-test "expect Lexer to consume paths" {
+test "expect Lexer to consume path tokens" {
     const testing = std.testing;
     const allocator = testing.allocator;
 
@@ -391,4 +402,19 @@ test "expect Lexer to consume paths" {
 
     try testing.expectEqualStrings("/some/test/path", actual.text);
     try testing.expectEqual(TokenKind.path, actual.kind);
+}
+
+test "expect Lexer to consume glob tokens" {
+    const testing = std.testing;
+    const allocator = testing.allocator;
+
+    const input = "*";
+    var lexer = try Lexer.init(testing.allocator, input, 0, input[0]);
+    defer lexer.deinit();
+
+    var actual = try lexer.glob(allocator);
+    defer actual.deinit();
+
+    try testing.expectEqualStrings("*", actual.text);
+    try testing.expectEqual(TokenKind.glob, actual.kind);
 }
