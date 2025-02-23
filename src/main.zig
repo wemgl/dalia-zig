@@ -114,6 +114,12 @@ const Lexer = struct {
     pub fn is_glob_alias(self: Lexer) bool {
         return self.cursor.current_char == asterisk;
     }
+
+    pub fn whitespace(self: *Lexer) void {
+        while (ascii.isWhitespace(self.cursor.current_char)) {
+            self.cursor.consume();
+        }
+    }
 };
 
 test "expect Token formatting" {
@@ -302,5 +308,26 @@ test "expect Lexer can check asterisk is for glob aliases" {
         const lexer = try Lexer.init(testing.allocator, "test", 0, tc.arg);
         defer lexer.deinit();
         try testing.expectEqual(tc.expected, lexer.is_glob_alias());
+    }
+}
+
+test "expect Lexer can consume whitespace" {
+    const testing = std.testing;
+
+    const test_cases = [_]struct {
+        arg: []const u8,
+        expected: u8,
+    }{
+        .{ .arg = "test", .expected = 't' },
+        .{ .arg = " test", .expected = 't' },
+        .{ .arg = "   test", .expected = 't' },
+        .{ .arg = "   ", .expected = eof },
+    };
+
+    for (test_cases) |tc| {
+        var lexer = try Lexer.init(testing.allocator, tc.arg, 0, tc.arg[0]);
+        defer lexer.deinit();
+        lexer.whitespace();
+        try testing.expectEqual(tc.expected, lexer.cursor.current_char);
     }
 }
