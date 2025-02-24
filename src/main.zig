@@ -14,14 +14,8 @@ const Token = struct {
     /// The particular text associated with this token when it was parsed.
     text: []const u8,
 
-    allocator: Allocator,
-
-    pub fn init(allocator: Allocator, kind: TokenKind, text: []const u8) Token {
-        return .{ .allocator = allocator, .kind = kind, .text = text };
-    }
-
-    pub fn deinit(self: *Token) void {
-        self.allocator.free(self.text);
+    pub fn init(kind: TokenKind, text: []const u8) Token {
+        return .{ .kind = kind, .text = text };
     }
 
     /// Formats this Token for display.
@@ -135,7 +129,6 @@ const Lexer = struct {
             self.cursor.consume();
         }
         return .{
-            .allocator = allocator,
             .kind = .alias,
             .text = try list.toOwnedSlice(),
         };
@@ -148,7 +141,6 @@ const Lexer = struct {
             self.cursor.consume();
         }
         return .{
-            .allocator = allocator,
             .kind = .path,
             .text = try list.toOwnedSlice(),
         };
@@ -157,17 +149,48 @@ const Lexer = struct {
     pub fn glob(self: *Lexer, allocator: Allocator) !Token {
         var list = ArrayList(u8).init(allocator);
         try list.append(self.cursor.current_char);
+        self.cursor.consume();
         return .{
-            .allocator = allocator,
             .kind = .glob,
             .text = try list.toOwnedSlice(),
         };
+    }
+
+    pub fn next_token(self: *Lexer, allocator: Allocator) !Token {
+        while (self.cursor.current_char != eof) {
+            switch (self.cursor.current_char) {
+                ' ', '\t', '\n', '\r' => {
+                    self.whitespace();
+                    continue;
+                },
+                '[' => {
+                    self.cursor.consume();
+                    return Token.init(.lbrack, "[");
+                },
+                ']' => {
+                    self.cursor.consume();
+                    return Token.init(.rbrack, "]");
+                },
+                else => {
+                    // Prioritize parsing aliases over paths that **DO NOT** start with a
+                    // forward slash.
+                    if (self.is_alias_name()) {
+                        return try self.alias(allocator);
+                    } else if (self.is_glob_alias()) {
+                        return try self.glob(allocator);
+                    } else if (self.is_not_end_of_line()) {
+                        return try self.path(allocator);
+                    }
+                },
+            }
+        }
+        const idx = @intFromEnum(TokenKind.eof);
+        return Token.init(.eof, token_names[idx]);
     }
 };
 
 test "expect Token formatting" {
     const testing = std.testing;
-    const test_allocator = std.testing.allocator;
 
     const test_cases = [_]struct {
         args: struct { kind: TokenKind, text: []const u8 },
@@ -200,9 +223,9 @@ test "expect Token formatting" {
     };
 
     for (test_cases) |tc| {
-        const token = Token.init(testing.allocator, tc.args.kind, tc.args.text);
-        const actual = try token.fmt(test_allocator);
-        defer test_allocator.free(actual);
+        const token = Token.init(tc.args.kind, tc.args.text);
+        const actual = try token.fmt(testing.allocator);
+        defer testing.allocator.free(actual);
         try testing.expectEqualStrings(tc.expected, actual);
     }
 }
@@ -377,13 +400,14 @@ test "expect Lexer can consume whitespace" {
 
 test "expect Lexer to consume alias tokens" {
     const testing = std.testing;
-    const allocator = testing.allocator;
 
     var lexer = try Lexer.init(testing.allocator, "test", 0, 't');
     defer lexer.deinit();
 
-    var actual = try lexer.alias(allocator);
-    defer actual.deinit();
+    const actual = try lexer.alias(testing.allocator);
+    defer {
+        testing.allocator.free(actual.text);
+    }
 
     try testing.expectEqualStrings("test", actual.text);
     try testing.expectEqual(TokenKind.alias, actual.kind);
@@ -391,14 +415,15 @@ test "expect Lexer to consume alias tokens" {
 
 test "expect Lexer to consume path tokens" {
     const testing = std.testing;
-    const allocator = testing.allocator;
 
     const input = "/some/test/path";
     var lexer = try Lexer.init(testing.allocator, input, 0, input[0]);
     defer lexer.deinit();
 
-    var actual = try lexer.path(allocator);
-    defer actual.deinit();
+    const actual = try lexer.path(testing.allocator);
+    defer {
+        testing.allocator.free(actual.text);
+    }
 
     try testing.expectEqualStrings("/some/test/path", actual.text);
     try testing.expectEqual(TokenKind.path, actual.kind);
@@ -406,15 +431,142 @@ test "expect Lexer to consume path tokens" {
 
 test "expect Lexer to consume glob tokens" {
     const testing = std.testing;
-    const allocator = testing.allocator;
 
     const input = "*";
     var lexer = try Lexer.init(testing.allocator, input, 0, input[0]);
     defer lexer.deinit();
 
-    var actual = try lexer.glob(allocator);
-    defer actual.deinit();
+    const actual = try lexer.glob(testing.allocator);
+    defer {
+        testing.allocator.free(actual.text);
+    }
 
     try testing.expectEqualStrings("*", actual.text);
     try testing.expectEqual(TokenKind.glob, actual.kind);
+}
+
+test "expect Lexer to parse valid alias and path tokens" {
+    const testing = std.testing;
+
+    const input =
+        \\[test]/some/test/path
+        \\/another/test/path
+    ;
+    var lexer = try Lexer.init(testing.allocator, input, 0, input[0]);
+    defer lexer.deinit();
+
+    var tokens = ArrayList(Token).init(testing.allocator);
+    defer {
+        for (tokens.items, 0..) |token, i| {
+            // Skip freeing memory for LBRACK, RBRACK, and <EOF>
+            if (i == 0 or i == 2 or i == tokens.items.len - 1) continue;
+            testing.allocator.free(token.text);
+        }
+        tokens.deinit();
+    }
+
+    while (true) {
+        const token = try lexer.next_token(testing.allocator);
+        try tokens.append(token);
+        if (token.kind == .eof) {
+            break;
+        }
+    }
+
+    try testing.expectEqual(6, tokens.items.len);
+    try testing.expectEqual(tokens.items[0].kind, .lbrack);
+    try testing.expectEqualStrings(tokens.items[0].text, "[");
+
+    try testing.expectEqual(tokens.items[1].kind, .alias);
+    try testing.expectEqualStrings(tokens.items[1].text, "test");
+
+    try testing.expectEqual(tokens.items[2].kind, .rbrack);
+    try testing.expectEqualStrings(tokens.items[2].text, "]");
+
+    try testing.expectEqual(tokens.items[3].kind, .path);
+    try testing.expectEqualStrings(tokens.items[3].text, "/some/test/path");
+
+    try testing.expectEqual(tokens.items[4].kind, .path);
+    try testing.expectEqualStrings(tokens.items[4].text, "/another/test/path");
+
+    try testing.expectEqual(tokens.items[5].kind, .eof);
+    try testing.expectEqualStrings(tokens.items[5].text, "<EOF>");
+}
+
+test "expect Lexer to parse invalid path tokens" {
+    const testing = std.testing;
+
+    const input = "some/test/path";
+    var lexer = try Lexer.init(testing.allocator, input, 0, input[0]);
+    defer lexer.deinit();
+
+    var tokens = ArrayList(Token).init(testing.allocator);
+    defer {
+        for (tokens.items, 0..) |token, i| {
+            // Skip <EOF>
+            if (i == tokens.items.len - 1) continue;
+            testing.allocator.free(token.text);
+        }
+        tokens.deinit();
+    }
+
+    while (true) {
+        const token = try lexer.next_token(testing.allocator);
+        try tokens.append(token);
+        if (token.kind == .eof) {
+            break;
+        }
+    }
+
+    try testing.expectEqual(3, tokens.items.len);
+    try testing.expectEqual(tokens.items[0].kind, .alias);
+    try testing.expectEqualStrings(tokens.items[0].text, "some");
+
+    try testing.expectEqual(tokens.items[1].kind, .path);
+    try testing.expectEqualStrings(tokens.items[1].text, "/test/path");
+
+    try testing.expectEqual(tokens.items[2].kind, .eof);
+    try testing.expectEqualStrings(tokens.items[2].text, "<EOF>");
+}
+
+test "expect Lexer to parse glob token tokens" {
+    const testing = std.testing;
+
+    const input = "[*]/some/test/path";
+    var lexer = try Lexer.init(testing.allocator, input, 0, input[0]);
+    defer lexer.deinit();
+
+    var tokens = ArrayList(Token).init(testing.allocator);
+    defer {
+        for (tokens.items, 0..) |token, i| {
+            // Skip freeing memory for LBRACK, RBRACK, and <EOF>
+            if (i == 0 or i == 2 or i == tokens.items.len - 1) continue;
+            testing.allocator.free(token.text);
+        }
+        tokens.deinit();
+    }
+
+    while (true) {
+        const token = try lexer.next_token(testing.allocator);
+        try tokens.append(token);
+        if (token.kind == .eof) {
+            break;
+        }
+    }
+
+    try testing.expectEqual(5, tokens.items.len);
+    try testing.expectEqual(tokens.items[0].kind, .lbrack);
+    try testing.expectEqualStrings(tokens.items[0].text, "[");
+
+    try testing.expectEqual(tokens.items[1].kind, .glob);
+    try testing.expectEqualStrings(tokens.items[1].text, "*");
+
+    try testing.expectEqual(tokens.items[2].kind, .rbrack);
+    try testing.expectEqualStrings(tokens.items[2].text, "]");
+
+    try testing.expectEqual(tokens.items[3].kind, .path);
+    try testing.expectEqualStrings(tokens.items[3].text, "/some/test/path");
+
+    try testing.expectEqual(tokens.items[4].kind, .eof);
+    try testing.expectEqualStrings(tokens.items[4].text, "<EOF>");
 }
