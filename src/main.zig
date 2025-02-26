@@ -96,24 +96,24 @@ const Lexer = struct {
         self.token_names.deinit();
     }
 
-    pub fn token_name_at_index(self: Lexer, i: usize) []const u8 {
+    pub fn tokenNameAtIndex(self: Lexer, i: usize) []const u8 {
         if (i >= self.token_names.items.len) return "";
         return self.token_names.items[i];
     }
 
-    pub fn is_not_end_of_line(self: Lexer) bool {
+    pub fn isNotEndOfLine(self: Lexer) bool {
         return !(self.cursor.current_char == '\u{ff}' or
             self.cursor.current_char == eof or
             self.cursor.current_char == '\n');
     }
 
-    pub fn is_alias_name(self: Lexer) bool {
+    pub fn isAliasName(self: Lexer) bool {
         return ascii.isAlphanumeric(self.cursor.current_char) or
             self.cursor.current_char == underscore or
             self.cursor.current_char == hyphen;
     }
 
-    pub fn is_glob_alias(self: Lexer) bool {
+    pub fn isGlob(self: Lexer) bool {
         return self.cursor.current_char == asterisk;
     }
 
@@ -125,7 +125,7 @@ const Lexer = struct {
 
     pub fn alias(self: *Lexer, allocator: Allocator) !Token {
         var list = ArrayList(u8).init(allocator);
-        while (self.is_alias_name()) {
+        while (self.isAliasName()) {
             try list.append(self.cursor.current_char);
             self.cursor.consume();
         }
@@ -137,7 +137,7 @@ const Lexer = struct {
 
     pub fn path(self: *Lexer, allocator: Allocator) !Token {
         var list = ArrayList(u8).init(allocator);
-        while (self.is_not_end_of_line()) {
+        while (self.isNotEndOfLine()) {
             try list.append(self.cursor.current_char);
             self.cursor.consume();
         }
@@ -157,7 +157,7 @@ const Lexer = struct {
         };
     }
 
-    pub fn next_token(self: *Lexer, allocator: Allocator) !Token {
+    pub fn nextToken(self: *Lexer, allocator: Allocator) !Token {
         while (self.cursor.current_char != eof) {
             switch (self.cursor.current_char) {
                 ' ', '\t', '\n', '\r' => {
@@ -175,11 +175,11 @@ const Lexer = struct {
                 else => {
                     // Prioritize parsing aliases over paths that **DO NOT** start with a
                     // forward slash.
-                    if (self.is_alias_name()) {
+                    if (self.isAliasName()) {
                         return try self.alias(allocator);
-                    } else if (self.is_glob_alias()) {
+                    } else if (self.isGlob()) {
                         return try self.glob(allocator);
-                    } else if (self.is_not_end_of_line()) {
+                    } else if (self.isNotEndOfLine()) {
                         return try self.path(allocator);
                     }
                 },
@@ -212,7 +212,7 @@ pub const Parser = struct {
         }
 
         var lexer = Lexer.init(allocator, s, 0, s[0]) catch return ParserError.LexerInitFailed;
-        const lookahead = lexer.next_token(allocator) catch return ParserError.LexerNextTokenFailed;
+        const lookahead = lexer.nextToken(allocator) catch return ParserError.LexerNextTokenFailed;
 
         return .{
             .allocator = allocator,
@@ -353,7 +353,7 @@ test "expect Lexer returns token names by index" {
     };
 
     for (test_cases) |tc| {
-        const token_name = lexer.token_name_at_index(tc.arg);
+        const token_name = lexer.tokenNameAtIndex(tc.arg);
         try testing.expectEqualStrings(tc.expected, token_name);
     }
 }
@@ -374,7 +374,7 @@ test "expect Lexer detects end-of-line" {
     for (test_cases) |tc| {
         const lexer = try Lexer.init(testing.allocator, "test", 0, tc.arg);
         defer lexer.deinit();
-        try testing.expectEqual(tc.expected, lexer.is_not_end_of_line());
+        try testing.expectEqual(tc.expected, lexer.isNotEndOfLine());
     }
 }
 
@@ -395,7 +395,7 @@ test "expect Lexer can check characters belong to aliases" {
     for (test_cases) |tc| {
         const lexer = try Lexer.init(testing.allocator, "test", 0, tc.arg);
         defer lexer.deinit();
-        try testing.expectEqual(tc.expected, lexer.is_alias_name());
+        try testing.expectEqual(tc.expected, lexer.isAliasName());
     }
 }
 
@@ -413,7 +413,7 @@ test "expect Lexer can check asterisk is for glob aliases" {
     for (test_cases) |tc| {
         const lexer = try Lexer.init(testing.allocator, "test", 0, tc.arg);
         defer lexer.deinit();
-        try testing.expectEqual(tc.expected, lexer.is_glob_alias());
+        try testing.expectEqual(tc.expected, lexer.isGlob());
     }
 }
 
@@ -506,7 +506,7 @@ test "expect Lexer to parse valid alias and path tokens" {
     }
 
     while (true) {
-        const token = try lexer.next_token(testing.allocator);
+        const token = try lexer.nextToken(testing.allocator);
         try tokens.append(token);
         if (token.kind == .eof) {
             break;
@@ -551,7 +551,7 @@ test "expect Lexer to parse invalid path tokens" {
     }
 
     while (true) {
-        const token = try lexer.next_token(testing.allocator);
+        const token = try lexer.nextToken(testing.allocator);
         try tokens.append(token);
         if (token.kind == .eof) {
             break;
@@ -587,7 +587,7 @@ test "expect Lexer to parse glob token tokens" {
     }
 
     while (true) {
-        const token = try lexer.next_token(testing.allocator);
+        const token = try lexer.nextToken(testing.allocator);
         try tokens.append(token);
         if (token.kind == .eof) {
             break;
