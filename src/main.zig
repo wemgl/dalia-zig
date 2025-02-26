@@ -284,12 +284,10 @@ test "expect Cursor consumes" {
         expected_current_char: u8 = '0',
         consume_count: u8 = 1,
     }{
-        // Test initialize cursor.
         .{
             .args = .{ .input = "", .pointer = 0, .current_char = '0' },
             .consume_count = 0,
         },
-        // Test cursor can consume 2 characters.
         .{
             .args = .{ .input = "test", .pointer = 0, .current_char = '0' },
             .expected_input = "test",
@@ -297,7 +295,6 @@ test "expect Cursor consumes" {
             .expected_current_char = 's',
             .consume_count = 2,
         },
-        // Test cursor can consume characters until final character of input.
         .{
             .args = .{ .input = "test", .pointer = 0, .current_char = '0' },
             .expected_input = "test",
@@ -305,7 +302,6 @@ test "expect Cursor consumes" {
             .expected_current_char = 't',
             .consume_count = 3,
         },
-        // Test cursor can consume all characters in input.
         .{
             .args = .{ .input = "test", .pointer = 0, .current_char = '0' },
             .expected_input = "test",
