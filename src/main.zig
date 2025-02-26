@@ -3,6 +3,7 @@ const mem = std.mem;
 const Allocator = mem.Allocator;
 const ascii = std.ascii;
 const ArrayList = std.ArrayList;
+const AutoArrayHashMap = std.AutoArrayHashMap;
 
 pub fn main() void {}
 
@@ -186,6 +187,45 @@ const Lexer = struct {
         }
         const idx = @intFromEnum(TokenKind.eof);
         return Token.init(.eof, token_names[idx]);
+    }
+};
+
+const ParserError = error{
+    EmptyInput,
+    LexerInitFailed,
+    LexerNextTokenFailed,
+};
+
+pub const Parser = struct {
+    allocator: Allocator,
+    /// The lexer responsible for returning tokenized input.
+    input: Lexer,
+    /// The current lookahead token used by this parser.
+    lookahead: Token,
+    /// The internal representation of a parsed configuration file.
+    int_rep: AutoArrayHashMap([]const u8, []const u8),
+
+    pub fn init(allocator: Allocator, s: []const u8) ParserError!Parser {
+        const trimmed_s = mem.trim(u8, s, " ");
+        if (trimmed_s.len == 0) {
+            return ParserError.EmptyInput;
+        }
+
+        var lexer = Lexer.init(allocator, s, 0, s[0]) catch return ParserError.LexerInitFailed;
+        const lookahead = lexer.next_token(allocator) catch return ParserError.LexerNextTokenFailed;
+
+        return .{
+            .allocator = allocator,
+            .input = lexer,
+            .lookahead = lookahead,
+            .int_rep = AutoArrayHashMap([]const u8, []const u8).init(allocator),
+        };
+    }
+
+    pub fn deinit(self: *Parser) void {
+        self.int_rep.deinit();
+        self.input.deinit();
+        self.allocator.free(self.lookahead.text);
     }
 };
 
@@ -569,4 +609,31 @@ test "expect Lexer to parse glob token tokens" {
 
     try testing.expectEqual(tokens.items[4].kind, .eof);
     try testing.expectEqualStrings(tokens.items[4].text, "<EOF>");
+}
+
+test "expect Parser is created successfully" {
+    const testing = std.testing;
+
+    var parser = try Parser.init(testing.allocator, "test");
+    defer parser.deinit();
+
+    try testing.expectEqual(0, parser.int_rep.values().len);
+    try testing.expectEqualStrings("test", parser.input.cursor.input);
+    try testing.expectEqual(4, parser.input.cursor.pointer);
+    try testing.expectEqual(eof, parser.input.cursor.current_char);
+    try testing.expectEqualDeep(Token.init(.alias, "test"), parser.lookahead);
+}
+
+test "expect Parser initialization fails when input is the empty string or blank" {
+    const testing = std.testing;
+
+    {
+        const parser = Parser.init(testing.allocator, "");
+        try testing.expectError(ParserError.EmptyInput, parser);
+    }
+
+    {
+        const parser = Parser.init(testing.allocator, "  ");
+        try testing.expectError(ParserError.EmptyInput, parser);
+    }
 }
