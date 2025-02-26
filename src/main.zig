@@ -207,13 +207,13 @@ pub const Parser = struct {
     /// The internal representation of a parsed configuration file.
     int_rep: StringArrayHashMap([]const u8),
 
-    pub fn init(allocator: Allocator, s: []const u8) ParserError!Parser {
-        const trimmed_s = mem.trim(u8, s, " ");
+    pub fn init(allocator: Allocator, input: []const u8) ParserError!Parser {
+        const trimmed_s = mem.trim(u8, input, " ");
         if (trimmed_s.len == 0) {
             return ParserError.EmptyInput;
         }
 
-        var lexer = Lexer.init(allocator, s, 0, s[0]) catch {
+        var lexer = Lexer.init(allocator, input, 0, input[0]) catch {
             return ParserError.LexerInitFailed;
         };
 
