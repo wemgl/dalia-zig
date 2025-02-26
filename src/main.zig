@@ -192,7 +192,7 @@ const Lexer = struct {
     }
 };
 
-const ParserError = error{
+const ParseError = error{
     EmptyInput,
     LexerInitFailed,
     LexerNextTokenFailed,
@@ -207,18 +207,18 @@ pub const Parser = struct {
     /// The internal representation of a parsed configuration file.
     int_rep: StringArrayHashMap([]const u8),
 
-    pub fn init(allocator: Allocator, input: []const u8) ParserError!Parser {
+    pub fn init(allocator: Allocator, input: []const u8) ParseError!Parser {
         const trimmed_s = mem.trim(u8, input, " ");
         if (trimmed_s.len == 0) {
-            return ParserError.EmptyInput;
+            return ParseError.EmptyInput;
         }
 
         var lexer = Lexer.init(allocator, input, 0, input[0]) catch {
-            return ParserError.LexerInitFailed;
+            return ParseError.LexerInitFailed;
         };
 
         const lookahead = lexer.nextToken() catch {
-            return ParserError.LexerNextTokenFailed;
+            return ParseError.LexerNextTokenFailed;
         };
 
         return .{
@@ -645,12 +645,12 @@ test "expect Parser initialization fails when input is the empty string or blank
 
     {
         const parser = Parser.init(testing.allocator, "");
-        try testing.expectError(ParserError.EmptyInput, parser);
+        try testing.expectError(ParseError.EmptyInput, parser);
     }
 
     {
         const parser = Parser.init(testing.allocator, "  ");
-        try testing.expectError(ParserError.EmptyInput, parser);
+        try testing.expectError(ParseError.EmptyInput, parser);
     }
 }
 
