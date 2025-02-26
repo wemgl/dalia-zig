@@ -78,6 +78,7 @@ const Cursor = struct {
 
 /// Creates and identifies tokens using the underlying cursor.
 const Lexer = struct {
+    allocator: Allocator,
     cursor: Cursor,
     token_names: ArrayList([]const u8),
 
@@ -87,6 +88,7 @@ const Lexer = struct {
             try all_tokens.append(tn);
         }
         return .{
+            .allocator = allocator,
             .cursor = Cursor.init(input, pointer, char),
             .token_names = all_tokens,
         };
@@ -123,8 +125,8 @@ const Lexer = struct {
         }
     }
 
-    pub fn alias(self: *Lexer, allocator: Allocator) !Token {
-        var list = ArrayList(u8).init(allocator);
+    pub fn alias(self: *Lexer) !Token {
+        var list = ArrayList(u8).init(self.allocator);
         while (self.isAliasName()) {
             try list.append(self.cursor.current_char);
             self.cursor.consume();
@@ -135,8 +137,8 @@ const Lexer = struct {
         };
     }
 
-    pub fn path(self: *Lexer, allocator: Allocator) !Token {
-        var list = ArrayList(u8).init(allocator);
+    pub fn path(self: *Lexer) !Token {
+        var list = ArrayList(u8).init(self.allocator);
         while (self.isNotEndOfLine()) {
             try list.append(self.cursor.current_char);
             self.cursor.consume();
@@ -147,8 +149,8 @@ const Lexer = struct {
         };
     }
 
-    pub fn glob(self: *Lexer, allocator: Allocator) !Token {
-        var list = ArrayList(u8).init(allocator);
+    pub fn glob(self: *Lexer) !Token {
+        var list = ArrayList(u8).init(self.allocator);
         try list.append(self.cursor.current_char);
         self.cursor.consume();
         return .{
@@ -157,7 +159,7 @@ const Lexer = struct {
         };
     }
 
-    pub fn nextToken(self: *Lexer, allocator: Allocator) !Token {
+    pub fn nextToken(self: *Lexer) !Token {
         while (self.cursor.current_char != eof) {
             switch (self.cursor.current_char) {
                 ' ', '\t', '\n', '\r' => {
@@ -176,11 +178,11 @@ const Lexer = struct {
                     // Prioritize parsing aliases over paths that **DO NOT** start with a
                     // forward slash.
                     if (self.isAliasName()) {
-                        return try self.alias(allocator);
+                        return try self.alias();
                     } else if (self.isGlob()) {
-                        return try self.glob(allocator);
+                        return try self.glob();
                     } else if (self.isNotEndOfLine()) {
-                        return try self.path(allocator);
+                        return try self.path();
                     }
                 },
             }
@@ -215,7 +217,7 @@ pub const Parser = struct {
             return ParserError.LexerInitFailed;
         };
 
-        const lookahead = lexer.nextToken(allocator) catch {
+        const lookahead = lexer.nextToken() catch {
             return ParserError.LexerNextTokenFailed;
         };
 
@@ -239,7 +241,9 @@ pub const Parser = struct {
         self.allocator.free(self.lookahead.text);
     }
 
-    // pub fn consume(self: )
+    pub fn consume(self: *Parser) !void {
+        self.lookahead = try self.input.nextToken();
+    }
 };
 
 test "expect Token formatting" {
@@ -453,7 +457,7 @@ test "expect Lexer to consume alias tokens" {
     var lexer = try Lexer.init(testing.allocator, "test", 0, 't');
     defer lexer.deinit();
 
-    const actual = try lexer.alias(testing.allocator);
+    const actual = try lexer.alias();
     defer {
         testing.allocator.free(actual.text);
     }
@@ -469,7 +473,7 @@ test "expect Lexer to consume path tokens" {
     var lexer = try Lexer.init(testing.allocator, input, 0, input[0]);
     defer lexer.deinit();
 
-    const actual = try lexer.path(testing.allocator);
+    const actual = try lexer.path();
     defer {
         testing.allocator.free(actual.text);
     }
@@ -485,7 +489,7 @@ test "expect Lexer to consume glob tokens" {
     var lexer = try Lexer.init(testing.allocator, input, 0, input[0]);
     defer lexer.deinit();
 
-    const actual = try lexer.glob(testing.allocator);
+    const actual = try lexer.glob();
     defer {
         testing.allocator.free(actual.text);
     }
@@ -517,7 +521,7 @@ test "expect Lexer to parse valid alias and path tokens" {
     }
 
     while (true) {
-        const token = try lexer.nextToken(testing.allocator);
+        const token = try lexer.nextToken();
         try tokens.append(token);
         if (token.kind == .eof) {
             break;
@@ -561,7 +565,7 @@ test "expect Lexer to parse invalid path tokens" {
     }
 
     while (true) {
-        const token = try lexer.nextToken(testing.allocator);
+        const token = try lexer.nextToken();
         try tokens.append(token);
         if (token.kind == .eof) {
             break;
@@ -599,7 +603,7 @@ test "expect Lexer to parse glob token tokens" {
     }
 
     while (true) {
-        const token = try lexer.nextToken(testing.allocator);
+        const token = try lexer.nextToken();
         try tokens.append(token);
         if (token.kind == .eof) {
             break;
@@ -657,4 +661,14 @@ test "expect Parser returns intermediate representation" {
 
     const aliases = parser.aliases();
     try testing.expect(aliases.count() == 0);
+}
+
+test "expect Parser consumes" {
+    const testing = std.testing;
+
+    var parser = try Parser.init(testing.allocator, "[test]/some/test/path");
+    defer parser.deinit();
+
+    try parser.consume();
+    try testing.expectEqualDeep(Token.init(.alias, "test"), parser.lookahead);
 }
