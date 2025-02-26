@@ -3,7 +3,7 @@ const mem = std.mem;
 const Allocator = mem.Allocator;
 const ascii = std.ascii;
 const ArrayList = std.ArrayList;
-const AutoArrayHashMap = std.AutoArrayHashMap;
+const StringArrayHashMap = std.StringArrayHashMap;
 
 pub fn main() void {}
 
@@ -203,7 +203,7 @@ pub const Parser = struct {
     /// The current lookahead token used by this parser.
     lookahead: Token,
     /// The internal representation of a parsed configuration file.
-    int_rep: AutoArrayHashMap([]const u8, []const u8),
+    int_rep: StringArrayHashMap([]const u8),
 
     pub fn init(allocator: Allocator, s: []const u8) ParserError!Parser {
         const trimmed_s = mem.trim(u8, s, " ");
@@ -223,7 +223,7 @@ pub const Parser = struct {
             .allocator = allocator,
             .input = lexer,
             .lookahead = lookahead,
-            .int_rep = AutoArrayHashMap([]const u8, []const u8).init(allocator),
+            .int_rep = StringArrayHashMap([]const u8).init(allocator),
         };
     }
 
