@@ -493,9 +493,11 @@ test "expect Lexer to parse valid alias and path tokens" {
 
     var tokens = ArrayList(Token).init(testing.allocator);
     defer {
-        for (tokens.items, 0..) |token, i| {
-            // Skip freeing memory for LBRACK, RBRACK, and <EOF>
-            if (i == 0 or i == 2 or i == tokens.items.len - 1) continue;
+        for (tokens.items) |token| {
+            if (mem.eql(u8, token.text, "[") or
+                mem.eql(u8, token.text, "]") or
+                mem.eql(u8, token.text, "<EOF>"))
+                continue;
             testing.allocator.free(token.text);
         }
         tokens.deinit();
@@ -538,9 +540,8 @@ test "expect Lexer to parse invalid path tokens" {
 
     var tokens = ArrayList(Token).init(testing.allocator);
     defer {
-        for (tokens.items, 0..) |token, i| {
-            // Skip <EOF>
-            if (i == tokens.items.len - 1) continue;
+        for (tokens.items) |token| {
+            if (mem.eql(u8, token.text, "<EOF>")) continue;
             testing.allocator.free(token.text);
         }
         tokens.deinit();
@@ -574,9 +575,11 @@ test "expect Lexer to parse glob token tokens" {
 
     var tokens = ArrayList(Token).init(testing.allocator);
     defer {
-        for (tokens.items, 0..) |token, i| {
-            // Skip freeing memory for LBRACK, RBRACK, and <EOF>
-            if (i == 0 or i == 2 or i == tokens.items.len - 1) continue;
+        for (tokens.items) |token| {
+            if (mem.eql(u8, token.text, "[") or
+                mem.eql(u8, token.text, "]") or
+                mem.eql(u8, token.text, "<EOF>"))
+                continue;
             testing.allocator.free(token.text);
         }
         tokens.deinit();
