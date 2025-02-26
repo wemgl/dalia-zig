@@ -227,11 +227,19 @@ pub const Parser = struct {
         };
     }
 
+    pub fn aliases(self: Parser) StringArrayHashMap([]const u8) {
+        return self.int_rep.clone() catch {
+            return StringArrayHashMap([]const u8).init(self.allocator);
+        };
+    }
+
     pub fn deinit(self: *Parser) void {
         self.int_rep.deinit();
         self.input.deinit();
         self.allocator.free(self.lookahead.text);
     }
+
+    // pub fn consume(self: )
 };
 
 test "expect Token formatting" {
@@ -640,4 +648,13 @@ test "expect Parser initialization fails when input is the empty string or blank
         const parser = Parser.init(testing.allocator, "  ");
         try testing.expectError(ParserError.EmptyInput, parser);
     }
+}
+
+test "expect Parser returns intermediate representation" {
+    const testing = std.testing;
+    var parser = try Parser.init(testing.allocator, "test");
+    defer parser.deinit();
+
+    const aliases = parser.aliases();
+    try testing.expect(aliases.count() == 0);
 }
