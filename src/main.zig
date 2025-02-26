@@ -211,8 +211,13 @@ pub const Parser = struct {
             return ParserError.EmptyInput;
         }
 
-        var lexer = Lexer.init(allocator, s, 0, s[0]) catch return ParserError.LexerInitFailed;
-        const lookahead = lexer.nextToken(allocator) catch return ParserError.LexerNextTokenFailed;
+        var lexer = Lexer.init(allocator, s, 0, s[0]) catch {
+            return ParserError.LexerInitFailed;
+        };
+
+        const lookahead = lexer.nextToken(allocator) catch {
+            return ParserError.LexerNextTokenFailed;
+        };
 
         return .{
             .allocator = allocator,
