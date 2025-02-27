@@ -90,14 +90,14 @@ const Lexer = struct {
     token_names: ArrayList([]const u8),
 
     pub fn init(allocator: Allocator, input: []const u8, pointer: usize, char: u8) !Lexer {
-        var all_tokens = ArrayList([]const u8).init(allocator);
+        var all_token_names = ArrayList([]const u8).init(allocator);
         for (token_names) |tn| {
-            try all_tokens.append(tn);
+            try all_token_names.append(tn);
         }
         return .{
             .allocator = allocator,
             .cursor = Cursor.init(input, pointer, char),
-            .token_names = all_tokens,
+            .token_names = all_token_names,
         };
     }
 
@@ -244,16 +244,16 @@ pub const Parser = struct {
         };
     }
 
-    pub fn aliases(self: Parser) StringArrayHashMap([]const u8) {
-        return self.int_rep.clone() catch {
-            return StringArrayHashMap([]const u8).init(self.allocator);
-        };
-    }
-
     pub fn deinit(self: *Parser) void {
         self.lookahead.deinit();
         self.int_rep.deinit();
         self.input.deinit();
+    }
+
+    pub fn aliases(self: Parser) StringArrayHashMap([]const u8) {
+        return self.int_rep.clone() catch {
+            return StringArrayHashMap([]const u8).init(self.allocator);
+        };
     }
 
     pub fn consume(self: *Parser) !void {
@@ -278,6 +278,78 @@ pub const Parser = struct {
 
     fn path(self: *Parser) !void {
         try self.matches(.path);
+    }
+
+    pub fn processInput(self: *Parser) ParseError!void {
+        try self.file();
+    }
+
+    fn file(self: *Parser) ParseError!void {
+        while (true) {
+            try self.line();
+            if (self.lookahead.kind == .eof) {
+                try self.matches(.eof);
+                break;
+            }
+        }
+    }
+
+    pub fn line(self: *Parser) ParseError!void {
+        var alias_name: ?[]const u8 = null;
+        var is_glob = false;
+
+        if (self.lookahead.kind == .lbrack) {
+            try self.matches(.lbrack);
+
+            if (self.lookahead.kind == .glob) {
+                is_glob = true;
+                try self.glob();
+            } else if (self.lookahead.kind == .alias) {
+                alias_name = self.lookahead.text;
+                try self.alias();
+            }
+
+            try self.matches(.rbrack);
+        }
+
+        const path_value = self.lookahead.text;
+        try self.path();
+
+        if (is_glob) {
+            try self.expandGlobPaths(path_value);
+        } else {
+            try self.addPathAlias(alias_name, path_value);
+        }
+    }
+
+    fn expandGlobPaths(self: *Parser, path_value: []const u8) ParseError!void {
+        var dir = fs.openDirAbsolute(path_value, .{ .iterate = true }) catch {
+            return ParseError.GlobExpansionFailed;
+        };
+        defer dir.close();
+
+        var iter = dir.iterate();
+        while (iter.next() catch return ParseError.GlobExpansionFailed) |entry| {
+            if (entry.kind == .file) continue;
+            try self.insertAliasFromPath(entry.name);
+        }
+    }
+
+    fn addPathAlias(self: *Parser, alias_name: ?[]const u8, path_value: []const u8) ParseError!void {
+        if (alias_name) |an| {
+            self.int_rep.put(an, path_value) catch {
+                return ParseError.AddIntRepItemFailed;
+            };
+        } else {
+            try self.insertAliasFromPath(path_value);
+        }
+    }
+
+    fn insertAliasFromPath(self: *Parser, path_value: []const u8) ParseError!void {
+        const alias_name = fs.path.stem(path_value);
+        self.int_rep.put(alias_name, path_value) catch {
+            return ParseError.AddIntRepItemFailed;
+        };
     }
 };
 
@@ -722,5 +794,22 @@ test "expect Parser matches token kinds" {
     {
         const actual = parser.matches(TokenKind.rbrack);
         try testing.expectError(ParseError.UnexpectedTokenMatched, actual);
+    }
+}
+
+test "expect Parser to process file" {
+    const testing = std.testing;
+
+    const test_cases = [_]struct {
+        input: []const u8,
+    }{
+        .{ .input = "/some/test/path" },
+        // .{ .input = "[alias]/some/test/path" },
+    };
+
+    for (test_cases) |tc| {
+        var parser = try Parser.init(testing.allocator, tc.input);
+        defer parser.deinit();
+        try parser.file();
     }
 }
