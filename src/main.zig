@@ -196,6 +196,8 @@ const ParseError = error{
     EmptyInput,
     LexerInitFailed,
     LexerNextTokenFailed,
+    ConsumeTokenFailed,
+    UnexpectedTokenMatched,
 };
 
 pub const Parser = struct {
@@ -243,6 +245,26 @@ pub const Parser = struct {
 
     pub fn consume(self: *Parser) !void {
         self.lookahead = try self.input.nextToken();
+    }
+
+    pub fn alias(self: *Parser) !void {
+        try self.matches(.alias);
+    }
+
+    pub fn matches(self: *Parser, kind: TokenKind) ParseError!void {
+        if (self.lookahead.kind == kind) {
+            self.consume() catch return ParseError.ConsumeTokenFailed;
+            return;
+        }
+        return ParseError.UnexpectedTokenMatched;
+    }
+
+    pub fn glob(self: *Parser) !void {
+        try self.matches(.glob);
+    }
+
+    fn path(self: *Parser) !void {
+        try self.matches(.path);
     }
 };
 
@@ -671,4 +693,21 @@ test "expect Parser consumes" {
 
     try parser.consume();
     try testing.expectEqualDeep(Token.init(.alias, "test"), parser.lookahead);
+}
+
+test "expect Parser matches token kinds" {
+    const testing = std.testing;
+
+    var parser = try Parser.init(testing.allocator, "[test]/some/test/path");
+    defer parser.deinit();
+
+    {
+        try parser.matches(TokenKind.lbrack);
+        try testing.expectEqualDeep(Token.init(.alias, "test"), parser.lookahead);
+    }
+
+    {
+        const actual = parser.matches(TokenKind.rbrack);
+        try testing.expectError(ParseError.UnexpectedTokenMatched, actual);
+    }
 }
