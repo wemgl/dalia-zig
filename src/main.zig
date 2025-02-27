@@ -4,28 +4,35 @@ const Allocator = mem.Allocator;
 const ascii = std.ascii;
 const ArrayList = std.ArrayList;
 const StringArrayHashMap = std.StringArrayHashMap;
+const fs = std.fs;
 
 pub fn main() void {}
 
 /// Token identifies a text and the kind of token it represents.
 const Token = struct {
+    allocator: Allocator,
+
     /// The specific atom this token represents.
     kind: TokenKind,
 
     /// The particular text associated with this token when it was parsed.
     text: []const u8,
 
-    pub fn init(kind: TokenKind, text: []const u8) Token {
-        return .{ .kind = kind, .text = text };
+    pub fn init(allocator: Allocator, kind: TokenKind, text: []const u8) Token {
+        return .{ .allocator = allocator, .kind = kind, .text = text };
     }
 
     /// Formats this Token for display.
-    pub fn fmt(self: Token, allocator: Allocator) ![]const u8 {
+    pub fn print(self: Token) ![]const u8 {
         const idx = @intFromEnum(self.kind);
-        return std.fmt.allocPrint(allocator, "<'{s}', {s}>", .{
+        return std.fmt.allocPrint(self.allocator, "<'{s}', {s}>", .{
             self.text,
             token_names[idx],
         });
+    }
+
+    pub fn deinit(self: Token) void {
+        self.allocator.free(self.text);
     }
 };
 
@@ -132,6 +139,7 @@ const Lexer = struct {
             self.cursor.consume();
         }
         return .{
+            .allocator = self.allocator,
             .kind = .alias,
             .text = try list.toOwnedSlice(),
         };
@@ -144,6 +152,7 @@ const Lexer = struct {
             self.cursor.consume();
         }
         return .{
+            .allocator = self.allocator,
             .kind = .path,
             .text = try list.toOwnedSlice(),
         };
@@ -154,6 +163,7 @@ const Lexer = struct {
         try list.append(self.cursor.current_char);
         self.cursor.consume();
         return .{
+            .allocator = self.allocator,
             .kind = .glob,
             .text = try list.toOwnedSlice(),
         };
@@ -168,11 +178,11 @@ const Lexer = struct {
                 },
                 '[' => {
                     self.cursor.consume();
-                    return Token.init(.lbrack, "[");
+                    return Token.init(self.allocator, .lbrack, "[");
                 },
                 ']' => {
                     self.cursor.consume();
-                    return Token.init(.rbrack, "]");
+                    return Token.init(self.allocator, .rbrack, "]");
                 },
                 else => {
                     // Prioritize parsing aliases over paths that **DO NOT** start with a
@@ -188,7 +198,7 @@ const Lexer = struct {
             }
         }
         const idx = @intFromEnum(TokenKind.eof);
-        return Token.init(.eof, token_names[idx]);
+        return Token.init(self.allocator, .eof, token_names[idx]);
     }
 };
 
@@ -198,6 +208,9 @@ const ParseError = error{
     LexerNextTokenFailed,
     ConsumeTokenFailed,
     UnexpectedTokenMatched,
+    GlobExpansionFailed,
+    AddIntRepItemFailed,
+    ProcessingFileFailed,
 };
 
 pub const Parser = struct {
@@ -238,9 +251,9 @@ pub const Parser = struct {
     }
 
     pub fn deinit(self: *Parser) void {
+        self.lookahead.deinit();
         self.int_rep.deinit();
         self.input.deinit();
-        self.allocator.free(self.lookahead.text);
     }
 
     pub fn consume(self: *Parser) !void {
@@ -302,8 +315,8 @@ test "expect Token formatting" {
     };
 
     for (test_cases) |tc| {
-        const token = Token.init(tc.args.kind, tc.args.text);
-        const actual = try token.fmt(testing.allocator);
+        const token = Token.init(testing.allocator, tc.args.kind, tc.args.text);
+        const actual = try token.print();
         defer testing.allocator.free(actual);
         try testing.expectEqualStrings(tc.expected, actual);
     }
@@ -659,7 +672,7 @@ test "expect Parser is created successfully" {
     try testing.expectEqualStrings("test", parser.input.cursor.input);
     try testing.expectEqual(4, parser.input.cursor.pointer);
     try testing.expectEqual(eof, parser.input.cursor.current_char);
-    try testing.expectEqualDeep(Token.init(.alias, "test"), parser.lookahead);
+    try testing.expectEqualDeep(Token.init(testing.allocator, .alias, "test"), parser.lookahead);
 }
 
 test "expect Parser initialization fails when input is the empty string or blank" {
@@ -692,7 +705,7 @@ test "expect Parser consumes" {
     defer parser.deinit();
 
     try parser.consume();
-    try testing.expectEqualDeep(Token.init(.alias, "test"), parser.lookahead);
+    try testing.expectEqualDeep(Token.init(testing.allocator, .alias, "test"), parser.lookahead);
 }
 
 test "expect Parser matches token kinds" {
@@ -703,7 +716,7 @@ test "expect Parser matches token kinds" {
 
     {
         try parser.matches(TokenKind.lbrack);
-        try testing.expectEqualDeep(Token.init(.alias, "test"), parser.lookahead);
+        try testing.expectEqualDeep(Token.init(testing.allocator, .alias, "test"), parser.lookahead);
     }
 
     {
