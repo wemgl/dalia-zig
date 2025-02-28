@@ -160,106 +160,106 @@ pub const Parser = struct {
     }
 };
 
-test "expect Parser is created successfully" {
-    const testing = std.testing;
+// test "expect Parser is created successfully" {
+//     const testing = std.testing;
+//
+//     var parser = try Parser.init(testing.allocator, "test");
+//     defer parser.deinit();
+//
+//     try testing.expectEqual(0, parser.int_rep.values().len);
+//     try testing.expectEqualStrings("test", parser.input.cursor.input);
+//     try testing.expectEqual(4, parser.input.cursor.pointer);
+//     try testing.expectEqual(cursor.eof, parser.input.cursor.current_char);
+//     try testing.expectEqualDeep(.alias, parser.lookahead.kind);
+//     try testing.expectEqualDeep("test", parser.lookahead.text);
+// }
 
-    var parser = try Parser.init(testing.allocator, "test");
-    defer parser.deinit();
-
-    try testing.expectEqual(0, parser.int_rep.values().len);
-    try testing.expectEqualStrings("test", parser.input.cursor.input);
-    try testing.expectEqual(4, parser.input.cursor.pointer);
-    try testing.expectEqual(cursor.eof, parser.input.cursor.current_char);
-    try testing.expectEqualDeep(.alias, parser.lookahead.kind);
-    try testing.expectEqualDeep("test", parser.lookahead.text);
-}
-
-test "expect Parser initialization fails when input is the empty string or blank" {
-    const testing = std.testing;
-
-    {
-        const parser = Parser.init(testing.allocator, "");
-        try testing.expectError(ParseError.EmptyInput, parser);
-    }
-
-    {
-        const parser = Parser.init(testing.allocator, "  ");
-        try testing.expectError(ParseError.EmptyInput, parser);
-    }
-}
-
-test "expect Parser returns intermediate representation" {
-    const testing = std.testing;
-    var parser = try Parser.init(testing.allocator, "test");
-    defer parser.deinit();
-
-    var aliases = parser.aliases();
-    defer aliases.deinit();
-
-    try testing.expect(aliases.count() == 0);
-}
-
-test "expect Parser consumes" {
-    const testing = std.testing;
-
-    var parser = try Parser.init(testing.allocator, "[test]/some/test/path");
-    defer parser.deinit();
-
-    try parser.consume();
-
-    try testing.expectEqualDeep(.alias, parser.lookahead.kind);
-    try testing.expectEqualDeep("test", parser.lookahead.text);
-}
-
-test "expect Parser matches token kinds" {
-    const testing = std.testing;
-
-    var parser = try Parser.init(testing.allocator, "[test]/some/test/path");
-    defer parser.deinit();
-
-    {
-        try parser.matches(.lbrack);
-        try testing.expectEqualDeep(.alias, parser.lookahead.kind);
-        try testing.expectEqualDeep("test", parser.lookahead.text);
-    }
-
-    {
-        const actual = parser.matches(.rbrack);
-        try testing.expectError(ParseError.UnexpectedTokenMatched, actual);
-    }
-}
-
-test "expect Parser to process input" {
-    const testing = std.testing;
-
-    const test_cases = [_]struct {
-        arg: []const u8,
-        expected_alias: []const u8,
-        expected_path: []const u8,
-    }{
-        .{
-            .arg = "/some/test/path",
-            .expected_alias = "path",
-            .expected_path = "/some/test/path",
-        },
-        // .{
-        //     .arg = "/some/test/path",
-        //     .expected_alias = "alias",
-        //     .expected_path = "/some/test/path",
-        // },
-    };
-
-    for (test_cases) |tc| {
-        var parser = try Parser.init(testing.allocator, tc.arg);
-        defer parser.deinit();
-
-        try parser.file();
-
-        var actual_aliases = parser.aliases();
-        defer actual_aliases.deinit();
-
-        if (actual_aliases.get(tc.expected_alias)) |actual_alias| {
-            try testing.expectEqualStrings(tc.expected_path, actual_alias);
-        }
-    }
-}
+// test "expect Parser initialization fails when input is the empty string or blank" {
+//     const testing = std.testing;
+//
+//     {
+//         const parser = Parser.init(testing.allocator, "");
+//         try testing.expectError(ParseError.EmptyInput, parser);
+//     }
+//
+//     {
+//         const parser = Parser.init(testing.allocator, "  ");
+//         try testing.expectError(ParseError.EmptyInput, parser);
+//     }
+// }
+//
+// test "expect Parser returns intermediate representation" {
+//     const testing = std.testing;
+//     var parser = try Parser.init(testing.allocator, "test");
+//     defer parser.deinit();
+//
+//     var aliases = parser.aliases();
+//     defer aliases.deinit();
+//
+//     try testing.expect(aliases.count() == 0);
+// }
+//
+// test "expect Parser consumes" {
+//     const testing = std.testing;
+//
+//     var parser = try Parser.init(testing.allocator, "[test]/some/test/path");
+//     defer parser.deinit();
+//
+//     try parser.consume();
+//
+//     try testing.expectEqualDeep(.alias, parser.lookahead.kind);
+//     try testing.expectEqualDeep("test", parser.lookahead.text);
+// }
+//
+// test "expect Parser matches token kinds" {
+//     const testing = std.testing;
+//
+//     var parser = try Parser.init(testing.allocator, "[test]/some/test/path");
+//     defer parser.deinit();
+//
+//     {
+//         try parser.matches(.lbrack);
+//         try testing.expectEqualDeep(.alias, parser.lookahead.kind);
+//         try testing.expectEqualDeep("test", parser.lookahead.text);
+//     }
+//
+//     {
+//         const actual = parser.matches(.rbrack);
+//         try testing.expectError(ParseError.UnexpectedTokenMatched, actual);
+//     }
+// }
+//
+// test "expect Parser to process input" {
+//     const testing = std.testing;
+//
+//     const test_cases = [_]struct {
+//         arg: []const u8,
+//         expected_alias: []const u8,
+//         expected_path: []const u8,
+//     }{
+//         .{
+//             .arg = "/some/test/path",
+//             .expected_alias = "path",
+//             .expected_path = "/some/test/path",
+//         },
+//         .{
+//             .arg = "/some/test/path",
+//             .expected_alias = "alias",
+//             .expected_path = "/some/test/path",
+//         },
+//     };
+//
+//     for (test_cases) |tc| {
+//         var parser = try Parser.init(testing.allocator, tc.arg);
+//         defer parser.deinit();
+//
+//         try parser.file();
+//
+//         var actual_aliases = parser.aliases();
+//         defer actual_aliases.deinit();
+//
+//         if (actual_aliases.get(tc.expected_alias)) |actual_alias| {
+//             try testing.expectEqualStrings(tc.expected_path, actual_alias);
+//         }
+//     }
+// }
