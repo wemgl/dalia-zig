@@ -96,11 +96,9 @@ pub const Parser = struct {
     }
 
     fn file(self: *Parser) ParseError!void {
-        std.debug.print("\nstart processing file…\n", .{});
         while (true) {
             try self.line();
             if (self.lookahead.kind == .eof) {
-                std.debug.print("end processing file…\n", .{});
                 try self.matches(.eof);
                 break;
             }
@@ -126,7 +124,6 @@ pub const Parser = struct {
         }
 
         const path_value = self.lookahead.text;
-        std.debug.print("path_value is {s}\n", .{path_value});
         try self.path();
 
         if (is_glob) {
@@ -150,20 +147,15 @@ pub const Parser = struct {
     }
 
     fn addPathAlias(self: *Parser, alias_name: ?[]const u8, path_value: []const u8) ParseError!void {
-        std.debug.print("\nattempt adding path to alias\n", .{});
         if (alias_name) |an| {
-            std.debug.print("\nadd path to alias: {s}, path: {s}\n", .{ an, path_value });
             self.int_rep.put(an, path_value) catch return ParseError.AddIntRepItemFailed;
         } else {
-            std.debug.print("\nthere was no alias name\n", .{});
             try self.insertAliasFromPath(path_value);
         }
     }
 
     fn insertAliasFromPath(self: *Parser, path_value: []const u8) ParseError!void {
-        std.debug.print("\nget alias name from path stem\n", .{});
         const alias_name = fs.path.stem(path_value);
-        std.debug.print("\nalias name is {s}\n", .{alias_name});
         self.int_rep.put(alias_name, path_value) catch return ParseError.AddIntRepItemFailed;
     }
 };
@@ -241,23 +233,33 @@ test "expect Parser to process input" {
     const testing = std.testing;
 
     const test_cases = [_]struct {
-        file_content: []const u8,
+        arg: []const u8,
+        expected_alias: []const u8,
+        expected_path: []const u8,
     }{
-        .{ .file_content = "/some/test/path" },
-        // .{ .file_content = "[alias]/some/test/path" },
+        .{
+            .arg = "/some/test/path",
+            .expected_alias = "path",
+            .expected_path = "/some/test/path",
+        },
+        // .{
+        //     .arg = "/some/test/path",
+        //     .expected_alias = "alias",
+        //     .expected_path = "/some/test/path",
+        // },
     };
 
     for (test_cases) |tc| {
-        var parser = try Parser.init(testing.allocator, tc.file_content);
+        var parser = try Parser.init(testing.allocator, tc.arg);
         defer parser.deinit();
 
-        // try parser.file();
+        try parser.file();
 
-        // var actual_aliases = parser.aliases();
-        // defer actual_aliases.deinit();
+        var actual_aliases = parser.aliases();
+        defer actual_aliases.deinit();
 
-        // if (actual_aliases.get("path")) |actual_alias| {
-        //     try testing.expectEqualStrings("/some/test/path", actual_alias);
-        // }
+        if (actual_aliases.get(tc.expected_alias)) |actual_alias| {
+            try testing.expectEqualStrings(tc.expected_path, actual_alias);
+        }
     }
 }
