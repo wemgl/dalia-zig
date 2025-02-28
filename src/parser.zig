@@ -229,7 +229,7 @@ test "expect Parser matches token kinds" {
     }
 }
 
-test "expect Parser to process input" {
+test "expect Parser to process input of only aliases" {
     const testing = std.testing;
 
     const test_cases = [_]struct {
