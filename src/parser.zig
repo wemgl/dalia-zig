@@ -52,11 +52,19 @@ pub const Parser = struct {
     }
 
     pub fn deinit(self: *Parser) void {
+        var iterator = self.int_rep.iterator();
+        while (iterator.next()) |entry| {
+            self.allocator.free(entry.value_ptr.*);
+        }
         self.int_rep.deinit();
         self.input.deinit();
         self.lookahead.deinit();
     }
 
+    /// Returns a copy of the aliases parsed from the input file.
+    ///
+    /// Callers must free the memory referenced by the returned hashmap
+    /// to avoid memory leaks.
     fn aliases(self: Parser) !StringArrayHashMap([]const u8) {
         return try self.int_rep.clone();
     }
@@ -236,11 +244,11 @@ test "expect Parser to process input of only aliases" {
             .expected_alias = "path",
             .expected_path = "/some/test/path",
         },
-        // .{
-        //     .arg = "[alias]/some/test/path",
-        //     .expected_alias = "alias",
-        //     .expected_path = "/some/test/path",
-        // },
+        .{
+            .arg = "[alias]/some/test/path",
+            .expected_alias = "alias",
+            .expected_path = "/some/test/path",
+        },
     };
 
     for (test_cases) |tc| {
