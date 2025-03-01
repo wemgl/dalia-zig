@@ -35,7 +35,7 @@ pub const Parser = struct {
             return ParseError.EmptyInput;
         }
 
-        var input = lexer.Lexer.init(allocator, s, 0, s[0]) catch {
+        var input = lexer.Lexer.init(allocator, trimmed_s, 0, s[0]) catch {
             return ParseError.LexerInitFailed;
         };
 
