@@ -81,7 +81,6 @@ pub const Lexer = struct {
         }
 
         const text = try fmt.allocPrint(self.allocator, "{s}", .{list.items});
-        // defer self.allocator.free(text);
         return token.Token{
             .allocator = self.allocator,
             .kind = .path,
