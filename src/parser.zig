@@ -61,10 +61,8 @@ pub const Parser = struct {
         self.lookahead.deinit();
     }
 
-    fn aliases(self: Parser) StringArrayHashMap([]const u8) {
-        return self.int_rep.clone() catch {
-            return StringArrayHashMap([]const u8).init(self.allocator);
-        };
+    fn aliases(self: Parser) !StringArrayHashMap([]const u8) {
+        return try self.int_rep.clone();
     }
 
     fn consume(self: *Parser) !void {
@@ -193,7 +191,7 @@ test "expect Parser returns intermediate representation" {
     var parser = try Parser.init(testing.allocator, "test");
     defer parser.deinit();
 
-    var aliases = parser.aliases();
+    var aliases = try parser.aliases();
     defer aliases.deinit();
 
     try testing.expect(aliases.count() == 0);
@@ -255,7 +253,7 @@ test "expect Parser to process input of only aliases" {
 
         try parser.file();
 
-        var actual = parser.aliases();
+        var actual = try parser.aliases();
         defer actual.deinit();
 
         try testing.expectEqualStrings(tc.expected_path, actual.get(tc.expected_alias) orelse "");
