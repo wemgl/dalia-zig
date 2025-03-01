@@ -243,7 +243,7 @@ test "expect Parser to process input of only aliases" {
             .expected_path = "/some/test/path",
         },
         .{
-            .arg = "/some/test/path",
+            .arg = "[alias]/some/test/path",
             .expected_alias = "alias",
             .expected_path = "/some/test/path",
         },
