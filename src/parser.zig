@@ -168,7 +168,7 @@ test "expect Parser is created successfully" {
     var parser = try Parser.init(testing.allocator, "test");
     defer parser.deinit();
 
-    try testing.expectEqual(0, parser.int_rep.values().len);
+    try testing.expectEqual(0, parser.int_rep.count());
     try testing.expectEqualStrings("test", parser.input.cursor.input);
     try testing.expectEqual(4, parser.input.cursor.pointer);
     try testing.expectEqual(cursor.eof, parser.input.cursor.current_char);
