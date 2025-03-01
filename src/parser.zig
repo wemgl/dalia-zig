@@ -258,8 +258,6 @@ test "expect Parser to process input of only aliases" {
         var actual_aliases = parser.aliases();
         defer actual_aliases.deinit();
 
-        if (actual_aliases.get(tc.expected_alias)) |actual_alias| {
-            try testing.expectEqualStrings(tc.expected_path, actual_alias);
-        }
+        try testing.expectEqualStrings(tc.expected_path, actual_aliases.get(tc.expected_alias) orelse "");
     }
 }
