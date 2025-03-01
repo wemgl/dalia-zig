@@ -277,7 +277,7 @@ test "expect Lexer to consume glob tokens" {
     defer actual.deinit();
 
     try testing.expectEqualStrings("*", actual.text);
-    try testing.expectEqual(token.TokenKind.glob, actual.kind);
+    try testing.expectEqual(.glob, actual.kind);
 }
 
 test "expect Lexer to parse valid alias and path tokens" {
@@ -333,7 +333,7 @@ test "expect Lexer to parse relative path tokens" {
 
     var tokens = ArrayList(token.Token).init(testing.allocator);
     defer {
-        for(tokens.items) |t| t.deinit();
+        for (tokens.items) |t| t.deinit();
         tokens.deinit();
     }
 
@@ -347,13 +347,13 @@ test "expect Lexer to parse relative path tokens" {
 
     try testing.expectEqual(3, tokens.items.len);
     try testing.expectEqual(.alias, tokens.items[0].kind);
-    try testing.expectEqualStrings(tokens.items[0].text, "some");
+    try testing.expectEqualStrings("some", tokens.items[0].text);
 
     try testing.expectEqual(.path, tokens.items[1].kind);
-    try testing.expectEqualStrings(tokens.items[1].text, "/test/path");
+    try testing.expectEqualStrings("/test/path", tokens.items[1].text);
 
     try testing.expectEqual(.eof, tokens.items[2].kind);
-    try testing.expectEqualStrings(tokens.items[2].text, "<EOF>");
+    try testing.expectEqualStrings("<EOF>", tokens.items[2].text);
 }
 
 test "expect Lexer to parse glob token tokens" {
@@ -378,18 +378,18 @@ test "expect Lexer to parse glob token tokens" {
     }
 
     try testing.expectEqual(5, tokens.items.len);
-    try testing.expectEqual(tokens.items[0].kind, .lbrack);
+    try testing.expectEqual(.lbrack, tokens.items[0].kind);
     try testing.expectEqualStrings("[", tokens.items[0].text);
 
-    try testing.expectEqual(tokens.items[1].kind, .glob);
+    try testing.expectEqual(.glob, tokens.items[1].kind);
     try testing.expectEqualStrings("*", tokens.items[1].text);
 
-    try testing.expectEqual(tokens.items[2].kind, .rbrack);
+    try testing.expectEqual(.rbrack, tokens.items[2].kind);
     try testing.expectEqualStrings("]", tokens.items[2].text);
 
-    try testing.expectEqual(tokens.items[3].kind, .path);
+    try testing.expectEqual(.path, tokens.items[3].kind);
     try testing.expectEqualStrings("/some/test/path", tokens.items[3].text);
 
-    try testing.expectEqual(tokens.items[4].kind, .eof);
+    try testing.expectEqual(.eof, tokens.items[4].kind);
     try testing.expectEqualStrings("<EOF>", tokens.items[4].text);
 }
