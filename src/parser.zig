@@ -18,6 +18,7 @@ const ParseError = error{
     GlobExpansionFailed,
     AddIntRepItemFailed,
     ProcessingFileFailed,
+    Unexpected,
 };
 
 pub const Parser = struct {
@@ -54,6 +55,7 @@ pub const Parser = struct {
     pub fn deinit(self: *Parser) void {
         var iterator = self.int_rep.iterator();
         while (iterator.next()) |entry| {
+            self.allocator.free(entry.key_ptr.*);
             self.allocator.free(entry.value_ptr.*);
         }
         self.int_rep.deinit();
@@ -160,9 +162,16 @@ pub const Parser = struct {
     fn insertAliasFromPath(self: *Parser, path_value: []const u8) ParseError!void {
         if (path_value.len == 0) return;
         const alias_name = fs.path.stem(path_value);
-        self.int_rep.put(alias_name, path_value) catch return ParseError.AddIntRepItemFailed;
+        const new_alias_name = self.allocator.dupe(u8, alias_name) catch return ParseError.Unexpected;
+        self.int_rep.put(new_alias_name, path_value) catch return ParseError.AddIntRepItemFailed;
     }
 };
+
+fn println(comptime fmt: []const u8, args: anytype) !void {
+    var buf: [1024]u8 = undefined;
+    const slice = try std.fmt.bufPrint(&buf, fmt, args);
+    std.debug.print("\r{s}\n", .{slice});
+}
 
 test "expect Parser is created successfully" {
     const testing = std.testing;
@@ -251,6 +260,7 @@ test "expect Parser to process input of only aliases" {
             .expected_alias = "alias",
             .expected_path = "/some/test/path",
         },
+        // TODO: Test case for parsing multiple lines
     };
 
     for (test_cases) |tc| {
@@ -265,3 +275,5 @@ test "expect Parser to process input of only aliases" {
         try testing.expectEqualStrings(tc.expected_path, actual.get(tc.expected_alias) orelse "");
     }
 }
+
+// TODO: Test case for printing globs (this should be a separate test)
