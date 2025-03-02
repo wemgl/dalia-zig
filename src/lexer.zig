@@ -87,8 +87,13 @@ pub const Lexer = struct {
     }
 
     pub fn glob(self: *Lexer) !token.Token {
-        const text = try fmt.allocPrint(self.allocator, "{c}", .{self.cursor.current_char});
+        var list = ArrayList(u8).init(self.allocator);
+        defer list.deinit();
+
+        try list.append(self.cursor.current_char);
         self.cursor.consume();
+
+        const text = try list.toOwnedSlice();
         return token.Token{
             .allocator = self.allocator,
             .kind = .glob,
