@@ -1,5 +1,6 @@
 const std = @import("std");
 const mem = std.mem;
+const fmt = std.fmt;
 const Allocator = mem.Allocator;
 const ascii = std.ascii;
 const ArrayList = std.ArrayList;
@@ -8,6 +9,8 @@ const fs = std.fs;
 const cursor = @import("cursor.zig");
 const token = @import("token.zig");
 const lexer = @import("lexer.zig");
+
+const path_max = 1024;
 
 const ParseError = error{
     EmptyInput,
@@ -138,15 +141,18 @@ pub const Parser = struct {
     }
 
     fn expandGlobPaths(self: *Parser, path_value: []const u8) ParseError!void {
+        if (path_value.len == 0) return;
+
         var dir = fs.openDirAbsolute(path_value, .{ .iterate = true }) catch {
             return ParseError.GlobExpansionFailed;
         };
         defer dir.close();
 
-        var iter = dir.iterate();
-        while (iter.next() catch return ParseError.GlobExpansionFailed) |entry| {
+        var walker = dir.walk(self.allocator) catch return ParseError.Unexpected;
+        defer walker.deinit();
+        while (walker.next() catch return ParseError.GlobExpansionFailed) |entry| {
             if (entry.kind == .file) continue;
-            try self.insertAliasFromPath(entry.name);
+            try self.insertAliasFromPath(entry.path);
         }
     }
 
@@ -167,9 +173,9 @@ pub const Parser = struct {
     }
 };
 
-fn println(comptime fmt: []const u8, args: anytype) !void {
-    var buf: [1024]u8 = undefined;
-    const slice = try std.fmt.bufPrint(&buf, fmt, args);
+fn println(comptime format: []const u8, args: anytype) !void {
+    var buf: [path_max]u8 = undefined;
+    const slice = try fmt.bufPrint(&buf, format, args);
     std.debug.print("\r{s}\n", .{slice});
 }
 
@@ -301,4 +307,38 @@ test "expect Parser to process input of only aliases in multiline file" {
     try testing.expectEqualStrings("~/some/test/path2", actual.get("path2") orelse "");
 }
 
-// TODO: Test case for printing globs (this should be a separate test)
+test "expect Parser to process glob aliases" {
+    const testing = std.testing;
+
+    var tmp = testing.tmpDir(.{});
+    defer tmp.cleanup();
+
+    try tmp.dir.makeDir("one");
+    try tmp.dir.makeDir("two");
+    try tmp.dir.makeDir("three");
+
+    const absolute_path = try tmp.parent_dir.realpathAlloc(testing.allocator, &tmp.sub_path);
+    const file = try fmt.allocPrint(testing.allocator, "[*]{s}", .{absolute_path});
+    defer testing.allocator.free(file);
+
+    var parser = try Parser.init(testing.allocator, file);
+    defer parser.deinit();
+
+    try parser.file();
+
+    var actual = try parser.aliases();
+    defer actual.deinit();
+
+    const path_one = try fmt.allocPrint(testing.allocator, "{s}/{s}", .{ absolute_path, "one" });
+    defer testing.allocator.free(path_one);
+
+    const path_two = try fmt.allocPrint(testing.allocator, "{s}/{s}", .{ absolute_path, "two" });
+    defer testing.allocator.free(path_two);
+
+    const path_three = try fmt.allocPrint(testing.allocator, "{s}/{s}", .{ absolute_path, "three" });
+    defer testing.allocator.free(path_three);
+
+    try testing.expectEqualStrings(path_one, actual.get("one") orelse "");
+    try testing.expectEqualStrings(path_two, actual.get("two") orelse "");
+    try testing.expectEqualStrings(path_three, actual.get("three") orelse "");
+}
