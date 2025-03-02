@@ -29,8 +29,10 @@ pub const Token = struct {
     pub fn deinit(self: Token) void {
         if (mem.eql(u8, "[", self.text) or
             mem.eql(u8, "]", self.text) or
-            mem.eql(u8, "<EOF>", self.text))
+            mem.eql(u8, "<EOF>", self.text) or
+            mem.eql(u8, "*", self.text)) {
             return;
+        }
         self.allocator.free(self.text);
     }
 };
