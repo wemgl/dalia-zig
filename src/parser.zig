@@ -10,7 +10,7 @@ const cursor = @import("cursor.zig");
 const token = @import("token.zig");
 const lexer = @import("lexer.zig");
 
-const path_max = 1024;
+pub const path_max = 1024;
 
 const ParseError = error{
     EmptyInput,
@@ -174,12 +174,6 @@ pub const Parser = struct {
         self.int_rep.put(new_alias_name, path_value) catch return ParseError.AddIntRepItemFailed;
     }
 };
-
-fn println(comptime format: []const u8, args: anytype) !void {
-    var buf: [path_max]u8 = undefined;
-    const slice = try fmt.bufPrint(&buf, format, args);
-    std.debug.print("\r{s}\n", .{slice});
-}
 
 // test "expect Parser is created successfully" {
 //     const testing = std.testing;
