@@ -260,6 +260,11 @@ test "expect Parser to process input of only aliases in single line file" {
             .expected_alias = "alias",
             .expected_path = "/some/test/path",
         },
+        .{
+            .arg = "~/some/test/path2",
+            .expected_alias = "path2",
+            .expected_path = "~/some/test/path2",
+        },
     };
 
     for (test_cases) |tc| {
@@ -280,6 +285,7 @@ test "expect Parser to process input of only aliases in multiline file" {
     const input =
         \\/some/test/path
         \\[alias]/some/test/path
+        \\~/some/test/path2
     ;
 
     var parser = try Parser.init(testing.allocator, input);
@@ -292,6 +298,7 @@ test "expect Parser to process input of only aliases in multiline file" {
 
     try testing.expectEqualStrings("/some/test/path", actual.get("path") orelse "");
     try testing.expectEqualStrings("/some/test/path", actual.get("alias") orelse "");
+    try testing.expectEqualStrings("~/some/test/path2", actual.get("path2") orelse "");
 }
 
 // TODO: Test case for printing globs (this should be a separate test)
