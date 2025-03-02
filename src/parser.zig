@@ -242,7 +242,7 @@ test "expect Parser matches token kinds" {
     }
 }
 
-test "expect Parser to process input of only aliases" {
+test "expect Parser to process input of only aliases in single line file" {
     const testing = std.testing;
 
     const test_cases = [_]struct {
@@ -260,7 +260,6 @@ test "expect Parser to process input of only aliases" {
             .expected_alias = "alias",
             .expected_path = "/some/test/path",
         },
-        // TODO: Test case for parsing multiple lines
     };
 
     for (test_cases) |tc| {
@@ -274,6 +273,25 @@ test "expect Parser to process input of only aliases" {
 
         try testing.expectEqualStrings(tc.expected_path, actual.get(tc.expected_alias) orelse "");
     }
+}
+
+test "expect Parser to process input of only aliases in multiline file" {
+    const testing = std.testing;
+    const input =
+        \\/some/test/path
+        \\[alias]/some/test/path
+    ;
+
+    var parser = try Parser.init(testing.allocator, input);
+    defer parser.deinit();
+
+    try parser.file();
+
+    var actual = try parser.aliases();
+    defer actual.deinit();
+
+    try testing.expectEqualStrings("/some/test/path", actual.get("path") orelse "");
+    try testing.expectEqualStrings("/some/test/path", actual.get("alias") orelse "");
 }
 
 // TODO: Test case for printing globs (this should be a separate test)
