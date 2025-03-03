@@ -23,10 +23,6 @@ pub const Lexer = struct {
         };
     }
 
-    pub fn deinit(self: Lexer) void {
-        _ = self;
-    }
-
     pub fn tokenNameAtIndex(_: Lexer, i: usize) []const u8 {
         if (i >= token.token_names.len) return "";
         return token.token_names[i];
@@ -131,7 +127,6 @@ pub const Lexer = struct {
 test "expect Lexer initialization" {
     const testing = std.testing;
     const lexer = try Lexer.init(testing.allocator, "test", 0, 't');
-    defer lexer.deinit();
 
     try testing.expectEqualStrings("test", lexer.cursor.input);
     try testing.expectEqual(0, lexer.cursor.pointer);
@@ -141,7 +136,6 @@ test "expect Lexer initialization" {
 test "expect Lexer returns token names by index" {
     const testing = std.testing;
     const lexer = try Lexer.init(testing.allocator, "test", 0, 't');
-    defer lexer.deinit();
 
     const test_cases = [_]struct {
         arg: usize,
@@ -173,7 +167,6 @@ test "expect Lexer detects end-of-line" {
 
     for (test_cases) |tc| {
         const lexer = try Lexer.init(testing.allocator, "test", 0, tc.arg);
-        defer lexer.deinit();
         try testing.expectEqual(tc.expected, lexer.isNotEndOfLine());
     }
 }
@@ -194,7 +187,6 @@ test "expect Lexer can check characters belong to aliases" {
 
     for (test_cases) |tc| {
         const lexer = try Lexer.init(testing.allocator, "test", 0, tc.arg);
-        defer lexer.deinit();
         try testing.expectEqual(tc.expected, lexer.isAliasName());
     }
 }
@@ -212,7 +204,6 @@ test "expect Lexer can check asterisk is for glob aliases" {
 
     for (test_cases) |tc| {
         const lexer = try Lexer.init(testing.allocator, "test", 0, tc.arg);
-        defer lexer.deinit();
         try testing.expectEqual(tc.expected, lexer.isGlob());
     }
 }
@@ -232,7 +223,6 @@ test "expect Lexer can consume whitespace" {
 
     for (test_cases) |tc| {
         var lexer = try Lexer.init(testing.allocator, tc.arg, 0, tc.arg[0]);
-        defer lexer.deinit();
         lexer.whitespace();
         try testing.expectEqual(tc.expected, lexer.cursor.current_char);
     }
@@ -242,7 +232,6 @@ test "expect Lexer to consume alias tokens" {
     const testing = std.testing;
 
     var lexer = try Lexer.init(testing.allocator, "test", 0, 't');
-    defer lexer.deinit();
 
     const actual = try lexer.alias();
     defer actual.deinit();
@@ -256,7 +245,6 @@ test "expect Lexer to consume path tokens" {
 
     const input = "/some/test/path";
     var lexer = try Lexer.init(testing.allocator, input, 0, input[0]);
-    defer lexer.deinit();
 
     const actual = try lexer.path();
     defer actual.deinit();
@@ -270,7 +258,6 @@ test "expect Lexer to consume glob tokens" {
 
     const input = "*";
     var lexer = try Lexer.init(testing.allocator, input, 0, input[0]);
-    defer lexer.deinit();
 
     const actual = try lexer.glob();
     defer actual.deinit();
@@ -287,7 +274,6 @@ test "expect Lexer to parse valid alias and path tokens" {
         \\/another/test/path
     ;
     var lexer = try Lexer.init(testing.allocator, input, 0, input[0]);
-    defer lexer.deinit();
 
     var tokens = ArrayList(token.Token).init(testing.allocator);
     defer {
@@ -328,7 +314,6 @@ test "expect Lexer to parse relative path tokens" {
 
     const input = "some/test/path";
     var lexer = try Lexer.init(testing.allocator, input, 0, input[0]);
-    defer lexer.deinit();
 
     var tokens = ArrayList(token.Token).init(testing.allocator);
     defer {
@@ -360,7 +345,6 @@ test "expect Lexer to parse glob token tokens" {
 
     const input = "[*]/some/test/path";
     var lexer = try Lexer.init(testing.allocator, input, 0, input[0]);
-    defer lexer.deinit();
 
     var tokens = ArrayList(token.Token).init(testing.allocator);
     defer {
