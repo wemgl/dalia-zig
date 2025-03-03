@@ -1,1 +1,19 @@
-pub fn main() void {}
+const std = @import("std");
+const command = @import("command.zig");
+const fatal = std.zig.fatal;
+const heap = std.heap;
+const ArenaAllocator = heap.ArenaAllocator;
+const page_allocator = heap.page_allocator;
+const process = std.process;
+
+pub fn main() !void {
+    var arena_allocator = ArenaAllocator.init(page_allocator);
+    defer arena_allocator.deinit();
+
+    const arena = arena_allocator.allocator();
+    const args = process.argsAlloc(arena) catch fatal("dalia: argument parsing failed.", .{});
+    defer process.argsFree(arena, args);
+
+    var cmd = command.Command.init(arena) catch fatal("dalia: init failed.", .{});
+    cmd.run(args) catch fatal("dalia: unexpected failure running subcommand.", .{});
+}
