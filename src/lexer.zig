@@ -31,7 +31,9 @@ pub const Lexer = struct {
     pub fn isNotEndOfLine(self: Lexer) bool {
         return !(self.cursor.current_char == '\u{ff}' or
             self.cursor.current_char == cursor.eof or
-            self.cursor.current_char == '\n');
+            self.cursor.current_char == '\n' or
+            self.cursor.current_char == ascii.control_code.vt or
+            self.cursor.current_char == ascii.control_code.ff);
     }
 
     pub fn isAliasName(self: Lexer) bool {
@@ -94,7 +96,13 @@ pub const Lexer = struct {
     pub fn nextToken(self: *Lexer) !token.Token {
         while (self.cursor.current_char != cursor.eof) {
             switch (self.cursor.current_char) {
-                ' ', '\t', '\n', '\r' => {
+                ' ',
+                '\t',
+                '\n',
+                '\r',
+                ascii.control_code.vt,
+                ascii.control_code.ff,
+                => {
                     self.whitespace();
                     continue;
                 },
@@ -163,6 +171,8 @@ test "expect Lexer detects end-of-line" {
         .{ .arg = cursor.eof },
         .{ .arg = '\n' },
         .{ .arg = '\u{ff}' },
+        .{ .arg = ascii.control_code.vt },
+        .{ .arg = ascii.control_code.ff },
     };
 
     for (test_cases) |tc| {
