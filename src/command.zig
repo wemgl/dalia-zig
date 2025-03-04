@@ -7,12 +7,13 @@ const process = std.process;
 const Allocator = mem.Allocator;
 const Parser = @import("parser.zig").Parser;
 const fs = std.fs;
-const fatal = std.zig.fatal;
+const fatal = @import("output.zig").fatal;
 const ascii = std.ascii;
 const io = std.io;
+
 const dalia_config_env_var: []const u8 = "DALIA_CONFIG_PATH";
 const config_filename: []const u8 = "config";
-const default_dalia_config_path: []const u8 = "~/.dalia";
+const default_dalia_config_dir: []const u8 = ".dalia";
 const version = SemanticVersion.parse(config.version) catch unreachable;
 
 /// The maximum config file size of 1MiB
@@ -95,12 +96,13 @@ pub const Command = struct {
     }
 
     pub fn run(self: *Command, args: [][]const u8) !void {
+        const stdout = io.getStdOut();
         const subcommands = args[1..];
         var should_print_usage = false;
         if (subcommands.len == 0) {
             should_print_usage = true;
         } else if (subcommands.len > 2) {
-            try io.getStdErr().writer().writeAll("incorrect number of arguments.\n\n");
+            fatal("incorrect number of arguments.\n");
             should_print_usage = true;
         } else if (mem.eql(u8, "help", subcommands[0])) {
             var subcommand: ?[]const u8 = null;
@@ -109,39 +111,46 @@ pub const Command = struct {
             }
             if (subcommand) |subcmd| {
                 if (mem.eql(u8, "aliases", subcmd)) {
-                    self.print_aliases_usage() catch fatal("dalia: help aliases failed to run.", .{});
+                    self.print_aliases_usage(stdout) catch fatal("dalia: help aliases failed to run.\n");
                 } else if (mem.eql(u8, "version", subcmd)) {
-                    self.print_version_usage() catch fatal("dalia: help version failed to run.", .{});
+                    self.print_version_usage(stdout) catch fatal("dalia: help version failed to run.\n");
                 } else {
                     const msg = try fmt.allocPrint(
                         self.allocator,
-                        "'{s}' is not a dalia command.\n\n",
+                        "'{s}' is not a dalia command.\n",
                         .{subcmd},
                     );
-                    try io.getStdErr().writer().writeAll(msg);
+                    fatal(msg);
                     should_print_usage = true;
                 }
             } else {
                 should_print_usage = true;
             }
         } else if (mem.eql(u8, "version", subcommands[0])) {
-            self.print_version() catch fatal("dalia: version command failed to run.", .{});
+            self.print_version(stdout) catch fatal("dalia: version command failed to run.\n");
         } else if (mem.eql(u8, "aliases", subcommands[0])) {
-            self.generate_aliases() catch fatal("dalia: aliases command failed to run.", .{});
+            self.generate_aliases(stdout) catch fatal("dalia: aliases command failed to run.\n");
         } else {
             should_print_usage = true;
         }
 
         if (should_print_usage) {
-            self.print_usage() catch fatal("dalia: help command failed to run.", .{});
+            self.print_usage(stdout) catch fatal("dalia: help command failed to run.\n");
         }
     }
 
-    fn generate_aliases(self: *Command) !void {
+    fn generate_aliases(self: *Command, writer: fs.File) !void {
         const dalia_config_path = process.getEnvVarOwned(
             self.allocator,
             dalia_config_env_var,
-        ) catch default_dalia_config_path;
+        ) catch blk: {
+            const home_path = try process.getEnvVarOwned(self.allocator, "HOME");
+            const default_dalia_config_path = try fs.path.join(self.allocator, &[_][]const u8{
+                home_path,
+                default_dalia_config_dir,
+            });
+            break :blk default_dalia_config_path;
+        };
 
         var config_dir = try fs.openDirAbsolute(dalia_config_path, .{});
         defer config_dir.close();
@@ -174,29 +183,28 @@ pub const Command = struct {
                 "alias {s}=\"cd {s}\"\n",
                 .{ key, entry.value_ptr.* },
             );
-            try io.getStdOut().writeAll(output);
+            try writer.writeAll(output);
         }
     }
 
-    fn print_version(self: *Command) !void {
+    fn print_version(self: *Command, writer: fs.File) !void {
         const output = try fmt.allocPrint(
             self.allocator,
             "dalia version {d}.{d}.{d}\n",
             .{ version.major, version.minor, version.patch },
         );
-        const stdout = std.io.getStdOut();
-        try stdout.writer().writeAll(output);
+        try writer.writeAll(output);
     }
 
-    fn print_aliases_usage(_: *Command) !void {
-        try std.io.getStdOut().writer().writeAll(aliases_usage);
+    fn print_aliases_usage(_: *Command, writer: fs.File) !void {
+        try writer.writeAll(aliases_usage);
     }
 
-    fn print_version_usage(_: *Command) !void {
-        try std.io.getStdOut().writer().writeAll(version_usage);
+    fn print_version_usage(_: *Command, writer: fs.File) !void {
+        try writer.writeAll(version_usage);
     }
 
-    fn print_usage(_: *Command) !void {
-        try std.io.getStdOut().writer().writeAll(usage);
+    fn print_usage(_: *Command, writer: fs.File) !void {
+        try writer.writeAll(usage);
     }
 };
