@@ -34,7 +34,7 @@ pub const Parser = struct {
     int_rep: StringArrayHashMap([]const u8),
 
     pub fn init(allocator: Allocator, s: []const u8) ParseError!Parser {
-        const trimmed_s = mem.trim(u8, s, " ");
+        const trimmed_s = mem.trim(u8, s, &ascii.whitespace);
         if (trimmed_s.len == 0) {
             return ParseError.EmptyInput;
         }
