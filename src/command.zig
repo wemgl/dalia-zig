@@ -3,15 +3,20 @@ const config = @import("config");
 const SemanticVersion = std.SemanticVersion;
 const mem = std.mem;
 const fmt = std.fmt;
+const process = std.process;
 const Allocator = mem.Allocator;
 const Parser = @import("parser.zig").Parser;
 const fs = std.fs;
 const fatal = std.zig.fatal;
-
+const ascii = std.ascii;
+const io = std.io;
 const dalia_config_env_var: []const u8 = "DALIA_CONFIG_PATH";
-const config_file: []const u8 = "config";
+const config_filename: []const u8 = "config";
 const default_dalia_config_path: []const u8 = "~/.dalia";
 const version = SemanticVersion.parse(config.version) catch unreachable;
+
+/// The maximum config file size of 1MiB
+const max_file_size_bytes = 1 << 20;
 
 const usage: []const u8 =
     \\Usage: dalia <command> [arguments]
@@ -95,7 +100,7 @@ pub const Command = struct {
         if (subcommands.len == 0) {
             should_print_usage = true;
         } else if (subcommands.len > 2) {
-            try std.io.getStdErr().writer().writeAll("incorrect number of arguments.\n\n");
+            try io.getStdErr().writer().writeAll("incorrect number of arguments.\n\n");
             should_print_usage = true;
         } else if (mem.eql(u8, "help", subcommands[0])) {
             var subcommand: ?[]const u8 = null;
@@ -113,7 +118,7 @@ pub const Command = struct {
                         "'{s}' is not a dalia command.\n\n",
                         .{subcmd},
                     );
-                    try std.io.getStdErr().writer().writeAll(msg);
+                    try io.getStdErr().writer().writeAll(msg);
                     should_print_usage = true;
                 }
             } else {
@@ -133,12 +138,44 @@ pub const Command = struct {
     }
 
     fn generate_aliases(self: *Command) !void {
-        _ = self;
-        // const p = Parser.init(self.allocator, s) catch {
-        //     return error.CommandParserInitFailed;
-        // };
-        // defer p.deinit();
-        // p.processInput() catch return error.CommandParseProcessInputFailed;
+        const dalia_config_path = process.getEnvVarOwned(
+            self.allocator,
+            dalia_config_env_var,
+        ) catch default_dalia_config_path;
+
+        var config_dir = try fs.openDirAbsolute(dalia_config_path, .{});
+        defer config_dir.close();
+
+        const file = try config_dir.openFile(config_filename, .{});
+        defer file.close();
+
+        const contents = try file.readToEndAlloc(self.allocator, max_file_size_bytes);
+        if (contents.len == 0) return error.EmptyConfigFileContents;
+
+        var p = try Parser.init(self.allocator, contents);
+        defer p.deinit();
+        try p.processInput();
+
+        var aliases = try p.aliases();
+        defer {
+            var iterator = aliases.iterator();
+            while (iterator.next()) |entry| {
+                self.allocator.free(entry.value_ptr.*);
+                self.allocator.free(entry.key_ptr.*);
+            }
+            aliases.deinit();
+        }
+
+        var iterator = aliases.iterator();
+        while (iterator.next()) |entry| {
+            const key = try ascii.allocLowerString(self.allocator, entry.key_ptr.*);
+            const output = try fmt.allocPrint(
+                self.allocator,
+                "alias {s}=\"cd {s}\"\n",
+                .{ key, entry.value_ptr.* },
+            );
+            try io.getStdOut().writeAll(output);
+        }
     }
 
     fn print_version(self: *Command) !void {

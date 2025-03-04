@@ -62,7 +62,6 @@ pub const Parser = struct {
             self.allocator.free(entry.value_ptr.*);
         }
         self.int_rep.deinit();
-        self.input.deinit();
         self.lookahead.deinit();
     }
 
@@ -70,7 +69,7 @@ pub const Parser = struct {
     ///
     /// Callers must free the memory referenced by the returned hashmap
     /// to avoid memory leaks.
-    fn aliases(self: Parser) !StringArrayHashMap([]const u8) {
+    pub fn aliases(self: Parser) !StringArrayHashMap([]const u8) {
         return try self.int_rep.clone();
     }
 
