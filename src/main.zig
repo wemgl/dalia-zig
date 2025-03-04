@@ -1,5 +1,5 @@
 const std = @import("std");
-const command = @import("command.zig");
+const Command = @import("command.zig").Command;
 const fatal = std.zig.fatal;
 const heap = std.heap;
 const ArenaAllocator = heap.ArenaAllocator;
@@ -14,6 +14,6 @@ pub fn main() !void {
     const args = process.argsAlloc(arena) catch fatal("dalia: argument parsing failed.", .{});
     defer process.argsFree(arena, args);
 
-    var cmd = command.Command.init(arena) catch fatal("dalia: init failed.", .{});
+    var cmd = Command.init(arena) catch fatal("dalia: init failed.", .{});
     cmd.run(args) catch fatal("dalia: unexpected failure running subcommand.", .{});
 }
