@@ -10,9 +10,9 @@ const ascii = std.ascii;
 const io = std.io;
 const SemanticVersion = std.SemanticVersion;
 
-const dalia_config_env_var: []const u8 = "DALIA_CONFIG_PATH";
+pub const config_env_var: []const u8 = "DALIA_CONFIG_PATH";
+pub const default_config_dir: []const u8 = ".dalia";
 const config_filename: []const u8 = "config";
-const default_dalia_config_dir: []const u8 = ".dalia";
 
 /// The maximum config file size of 1MiB
 const max_file_size_bytes = 1 << 20;
@@ -88,9 +88,14 @@ const version_usage: []const u8 =
 pub const Command = struct {
     allocator: Allocator,
     version: SemanticVersion,
+    config_path: []const u8,
 
-    pub fn init(allocator: Allocator, version: SemanticVersion) !Command {
-        return .{ .allocator = allocator, .version = version };
+    pub fn init(allocator: Allocator, version: SemanticVersion, config_path: []const u8) !Command {
+        return .{
+            .allocator = allocator,
+            .version = version,
+            .config_path = config_path,
+        };
     }
 
     pub fn run(self: *Command, args: []const []const u8, writer: fs.File) !void {
@@ -145,19 +150,7 @@ pub const Command = struct {
     }
 
     fn generate_aliases(self: *Command, writer: fs.File) !void {
-        const dalia_config_path = process.getEnvVarOwned(
-            self.allocator,
-            dalia_config_env_var,
-        ) catch blk: {
-            const home_path = try process.getEnvVarOwned(self.allocator, "HOME");
-            const default_dalia_config_path = try fs.path.join(self.allocator, &[_][]const u8{
-                home_path,
-                default_dalia_config_dir,
-            });
-            break :blk default_dalia_config_path;
-        };
-
-        var config_dir = try fs.openDirAbsolute(dalia_config_path, .{});
+        var config_dir = try fs.openDirAbsolute(self.config_path, .{});
         defer config_dir.close();
 
         const file = try config_dir.openFile(config_filename, .{});
@@ -175,8 +168,8 @@ pub const Command = struct {
         defer {
             var iterator = aliases.iterator();
             while (iterator.next()) |entry| {
-                self.allocator.free(entry.value_ptr.*);
                 self.allocator.free(entry.key_ptr.*);
+                self.allocator.free(entry.value_ptr.*);
             }
             aliases.deinit();
         }
@@ -234,7 +227,7 @@ test "expect Command to print the version" {
     defer tmp.cleanup();
 
     const version = try SemanticVersion.parse("0.1.0");
-    var cmd = try Command.init(testing.allocator, version);
+    var cmd = try Command.init(testing.allocator, version, "");
 
     const out = try tmp.dir.createFile("out", .{ .read = true, .mode = 0o777 });
     defer out.close();
