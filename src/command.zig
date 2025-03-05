@@ -1,6 +1,4 @@
 const std = @import("std");
-const config = @import("config");
-const SemanticVersion = std.SemanticVersion;
 const mem = std.mem;
 const fmt = std.fmt;
 const process = std.process;
@@ -10,11 +8,11 @@ const fs = std.fs;
 const fatal = @import("output.zig").fatal;
 const ascii = std.ascii;
 const io = std.io;
+const SemanticVersion = std.SemanticVersion;
 
 const dalia_config_env_var: []const u8 = "DALIA_CONFIG_PATH";
 const config_filename: []const u8 = "config";
 const default_dalia_config_dir: []const u8 = ".dalia";
-const version = SemanticVersion.parse(config.version) catch unreachable;
 
 /// The maximum config file size of 1MiB
 const max_file_size_bytes = 1 << 20;
@@ -89,9 +87,10 @@ const version_usage: []const u8 =
 
 pub const Command = struct {
     allocator: Allocator,
+    version : SemanticVersion,
 
-    pub fn init(allocator: Allocator) !Command {
-        return .{ .allocator = allocator };
+    pub fn init(allocator: Allocator, version: SemanticVersion) !Command {
+        return .{ .allocator = allocator, .version = version };
     }
 
     pub fn run(self: *Command, args: []const []const u8) !void {
@@ -199,7 +198,7 @@ pub const Command = struct {
         const output = try fmt.allocPrint(
             self.allocator,
             "dalia version {d}.{d}.{d}\n",
-            .{ version.major, version.minor, version.patch },
+            .{ self.version.major, self.version.minor, self.version.patch },
         );
         try writer.writeAll(output);
     }
