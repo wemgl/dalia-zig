@@ -87,14 +87,13 @@ const version_usage: []const u8 =
 
 pub const Command = struct {
     allocator: Allocator,
-    version : SemanticVersion,
+    version: SemanticVersion,
 
     pub fn init(allocator: Allocator, version: SemanticVersion) !Command {
         return .{ .allocator = allocator, .version = version };
     }
 
-    pub fn run(self: *Command, args: []const []const u8) !void {
-        const stdout = io.getStdOut();
+    pub fn run(self: *Command, args: []const []const u8, writer: fs.File) !void {
         const subcommands = args[1..];
         var should_print_usage = false;
         if (subcommands.len == 0) {
@@ -109,9 +108,9 @@ pub const Command = struct {
 
             if (subcommand) |subcmd| {
                 if (mem.eql(u8, "aliases", subcmd)) {
-                    self.print_aliases_usage(stdout) catch fatal("dalia: help aliases failed to run.\n");
+                    self.print_aliases_usage(writer) catch fatal("dalia: help aliases failed to run.\n");
                 } else if (mem.eql(u8, "version", subcmd)) {
-                    self.print_version_usage(stdout) catch fatal("dalia: help version failed to run.\n");
+                    self.print_version_usage(writer) catch fatal("dalia: help version failed to run.\n");
                 } else {
                     const msg = try fmt.allocPrint(
                         self.allocator,
@@ -130,18 +129,18 @@ pub const Command = struct {
             if (subcommands.len == 2) {
                 fatal("dalia: version doesn't take any arguments.\n");
             }
-            self.print_version(stdout) catch fatal("dalia: version command failed to run.\n");
+            self.print_version(writer) catch fatal("dalia: version command failed to run.\n");
         } else if (mem.eql(u8, "aliases", subcommands[0])) {
             if (subcommands.len == 2) {
                 fatal("dalia: aliases doesn't take any arguments.\n");
             }
-            self.generate_aliases(stdout) catch fatal("dalia: aliases command failed to run.\n");
+            self.generate_aliases(writer) catch fatal("dalia: aliases command failed to run.\n");
         } else {
             should_print_usage = true;
         }
 
         if (should_print_usage) {
-            self.print_usage(stdout) catch fatal("dalia: help command failed to run.\n");
+            self.print_usage(writer) catch fatal("dalia: help command failed to run.\n");
         }
     }
 
@@ -200,6 +199,8 @@ pub const Command = struct {
             "dalia version {d}.{d}.{d}\n",
             .{ self.version.major, self.version.minor, self.version.patch },
         );
+        defer self.allocator.free(output);
+
         try writer.writeAll(output);
     }
 
@@ -215,3 +216,36 @@ pub const Command = struct {
         try writer.writeAll(usage);
     }
 };
+
+test "expect Command to print the version" {
+    const testing = std.testing;
+
+    const test_cases = [_]struct {
+        args: []const []const u8,
+        expected: []const u8,
+    }{
+        .{ .args = &.{ "dalia", "version" }, .expected = "dalia version 0.1.0" },
+        .{ .args = &.{ "dalia", "help" }, .expected = "Usage: dalia <command> [arguments]" },
+        .{ .args = &.{ "dalia", "help", "aliases" }, .expected = "Usage: dalia aliases" },
+        .{ .args = &.{ "dalia", "help", "version" }, .expected = "Usage: dalia version" },
+    };
+
+    var tmp = testing.tmpDir(.{});
+    defer tmp.cleanup();
+
+    const version = try SemanticVersion.parse("0.1.0");
+    var cmd = try Command.init(testing.allocator, version);
+
+    const out = try tmp.dir.createFile("out", .{ .read = true, .mode = 0o777 });
+    defer out.close();
+
+    for (test_cases) |tc| {
+        try cmd.run(tc.args, out);
+        try out.seekTo(0);
+
+        const actual = try out.readToEndAlloc(testing.allocator, max_file_size_bytes);
+        defer testing.allocator.free(actual);
+
+        try testing.expect(std.mem.containsAtLeast(u8, actual, 1, tc.expected));
+    }
+}

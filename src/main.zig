@@ -7,6 +7,7 @@ const page_allocator = heap.page_allocator;
 const process = std.process;
 const config = @import("config");
 const SemanticVersion = std.SemanticVersion;
+const io = std.io;
 
 pub fn main() !void {
     var arena_allocator = ArenaAllocator.init(page_allocator);
@@ -16,7 +17,9 @@ pub fn main() !void {
     const args = process.argsAlloc(arena) catch fatal("dalia: argument parsing failed.\n");
     defer process.argsFree(arena, args);
 
-    const version = SemanticVersion.parse(config.version) catch fatal("dalia: failed to parse version.\n");
+    const version = SemanticVersion.parse(config.version) catch fatal("dalia: version parse failed.\n");
     var cmd = Command.init(arena, version) catch fatal("dalia: init failed.\n");
-    cmd.run(args) catch fatal("dalia: unexpected failure running subcommand.\n");
+
+    const stdout = io.getStdOut();
+    cmd.run(args, stdout) catch fatal("dalia: unexpected failure running subcommand.\n");
 }
