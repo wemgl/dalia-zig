@@ -8,7 +8,7 @@ pub fn println(comptime format: []const u8, args: anytype) !void {
     std.debug.print("\r{s}\n", .{slice});
 }
 
-pub fn fatal(msg: []const u8) void {
+pub fn fatal(msg: []const u8) noreturn {
     std.io.getStdErr().writeAll(msg) catch unreachable;
     std.process.exit(1);
 }

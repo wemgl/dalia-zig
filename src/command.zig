@@ -53,9 +53,8 @@ const aliases_usage: []const u8 =
     \\an alias to a directory is to provide its absolute path on disk. The generated alias will use
     \\the lowercase name of directory at the end of the absolute path as the name of the alias. The
     \\alias name can be customized as well, by prepending the absolute path with a custom name surrounded
-    \\by square brackets (i.e. `[` and `]`). The casing of the custom name doesn't change, so if it's
-    \\provided in titlecase, snakecase, or any other case, the alias will be created with that case in
-    \\tact.
+    \\by square brackets (i.e. `[` and `]`). Custom aliases are all converted to lowercase with spaces replaced
+    \\with hyphens (i.e. `-`).
     \\
     \\This command also expands a single directory into multiple aliases when the configured line starts with
     \\an asterisk surrounded by square brackets (i.e. `[*]`), which tells the parser to traverse the immediate
@@ -64,17 +63,17 @@ const aliases_usage: []const u8 =
     \\
     \\Examples:
     \\Simple path
-    \\/some/path => alias path='cd /some/path'
+    \\/some/path => alias path="cd /some/path"
     \\
     \\Custom name
-    \\[my-path]/some/path => alias my-path='cd /some/path'
-    \\[MyPath]/some/path => alias MyPath='cd /some/path'
+    \\[my-path]/some/path => alias my-path="cd /some/path"
+    \\[MyPath]/some/path => alias mypath="cd /some/path"
     \\
     \\Directory expansion
     \\[*]/some/path =>
-    \\alias one='cd /some/path/one'
-    \\alias two='cd /some/path/two'
-    \\alias three='cd /some/path/three'
+    \\alias one="cd /some/path/one"
+    \\alias two="cd /some/path/two"
+    \\alias three="cd /some/path/three"
     \\
     \\when /some/path has contents /one, /two, file.txt, and /three. Note that no alias is created for file.txt.
     \\
@@ -95,20 +94,20 @@ pub const Command = struct {
         return .{ .allocator = allocator };
     }
 
-    pub fn run(self: *Command, args: [][]const u8) !void {
+    pub fn run(self: *Command, args: []const []const u8) !void {
         const stdout = io.getStdOut();
         const subcommands = args[1..];
         var should_print_usage = false;
         if (subcommands.len == 0) {
             should_print_usage = true;
         } else if (subcommands.len > 2) {
-            fatal("incorrect number of arguments.\n");
-            should_print_usage = true;
+            fatal("dalia: incorrect number of arguments.\n");
         } else if (mem.eql(u8, "help", subcommands[0])) {
             var subcommand: ?[]const u8 = null;
             if (subcommands.len == 2) {
                 subcommand = subcommands[1];
             }
+
             if (subcommand) |subcmd| {
                 if (mem.eql(u8, "aliases", subcmd)) {
                     self.print_aliases_usage(stdout) catch fatal("dalia: help aliases failed to run.\n");
@@ -126,9 +125,17 @@ pub const Command = struct {
             } else {
                 should_print_usage = true;
             }
-        } else if (mem.eql(u8, "version", subcommands[0])) {
+        }
+
+        if (mem.eql(u8, "version", subcommands[0])) {
+            if (subcommands.len == 2) {
+                fatal("dalia: version doesn't take any arguments.\n");
+            }
             self.print_version(stdout) catch fatal("dalia: version command failed to run.\n");
         } else if (mem.eql(u8, "aliases", subcommands[0])) {
+            if (subcommands.len == 2) {
+                fatal("dalia: aliases doesn't take any arguments.\n");
+            }
             self.generate_aliases(stdout) catch fatal("dalia: aliases command failed to run.\n");
         } else {
             should_print_usage = true;
@@ -163,6 +170,7 @@ pub const Command = struct {
 
         var p = try Parser.init(self.allocator, contents);
         defer p.deinit();
+
         try p.processInput();
 
         var aliases = try p.aliases();
