@@ -246,6 +246,6 @@ test "expect Command to print the version" {
         const actual = try out.readToEndAlloc(testing.allocator, max_file_size_bytes);
         defer testing.allocator.free(actual);
 
-        try testing.expect(std.mem.containsAtLeast(u8, actual, 1, tc.expected));
+        try testing.expect(mem.containsAtLeast(u8, actual, 1, tc.expected));
     }
 }
