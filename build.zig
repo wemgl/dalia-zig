@@ -38,10 +38,16 @@ pub fn build(b: *std.Build) !void {
             run_step.dependOn(&run_exe.step);
         }
 
+        const triple = try target.zigTriple(b.allocator);
+        const folder_name = try std.fmt.allocPrint(
+            b.allocator,
+            "{s}-{s}",
+            .{"dalia", triple},
+        );
         const target_output = b.addInstallArtifact(exe, .{
             .dest_dir = .{
                 .override = .{
-                    .custom = try target.zigTriple(b.allocator),
+                    .custom = folder_name,
                 },
             },
         });
