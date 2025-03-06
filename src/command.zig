@@ -128,9 +128,7 @@ pub const Command = struct {
             } else {
                 should_print_usage = true;
             }
-        }
-
-        if (mem.eql(u8, "version", subcommands[0])) {
+        } else if (mem.eql(u8, "version", subcommands[0])) {
             if (subcommands.len == 2) {
                 fatal("dalia: version doesn't take any arguments.\n");
             }
