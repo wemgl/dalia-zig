@@ -157,6 +157,8 @@ pub const Command = struct {
         defer file.close();
 
         const contents = try file.readToEndAlloc(self.allocator, max_file_size_bytes);
+        defer self.allocator.free(contents);
+
         if (contents.len == 0) return error.EmptyConfigFileContents;
 
         var p = try Parser.init(self.allocator, contents);
@@ -165,24 +167,21 @@ pub const Command = struct {
         try p.processInput();
 
         var aliases = try p.aliases();
-        defer {
-            var iterator = aliases.iterator();
-            while (iterator.next()) |entry| {
-                self.allocator.free(entry.key_ptr.*);
-                self.allocator.free(entry.value_ptr.*);
-            }
-            aliases.deinit();
-        }
+        defer aliases.deinit();
 
         var iterator = aliases.iterator();
         while (iterator.next()) |entry| {
             const key = try ascii.allocLowerString(self.allocator, entry.key_ptr.*);
+            defer self.allocator.free(key);
+
             const output = try fmt.allocPrint(
                 self.allocator,
                 "alias {s}=\"cd {s}\"\n",
                 .{ key, entry.value_ptr.* },
             );
-            try writer.writeAll(output);
+            defer self.allocator.free(output);
+
+            _ = try writer.write(output);
         }
     }
 
@@ -210,7 +209,7 @@ pub const Command = struct {
     }
 };
 
-test "expect Command to print the version" {
+test "expect Command to print version and help text" {
     const testing = std.testing;
 
     const test_cases = [_]struct {
@@ -241,4 +240,35 @@ test "expect Command to print the version" {
 
         try testing.expect(mem.containsAtLeast(u8, actual, 1, tc.expected));
     }
+}
+
+test "expect Command to print aliases" {
+    const testing = std.testing;
+
+    var tmp = testing.tmpDir(.{});
+    defer tmp.cleanup();
+
+    const config_path = try tmp.parent_dir.realpathAlloc(testing.allocator, &tmp.sub_path);
+    defer testing.allocator.free(config_path);
+
+    const version = try SemanticVersion.parse("0.1.0");
+    var cmd = try Command.init(testing.allocator, version, config_path);
+
+    const out = try tmp.dir.createFile("out", .{ .read = true, .mode = 0o755 });
+    defer out.close();
+
+    const config = try tmp.dir.createFile("config", .{ .read = true, .mode = 0o755 });
+    defer config.close();
+
+    try config.writeAll("[test]/some/test/path");
+
+    try cmd.run(&.{ "dalia", "aliases" }, out);
+    try out.seekTo(0);
+
+    const actual = try out.readToEndAlloc(testing.allocator, max_file_size_bytes);
+    defer testing.allocator.free(actual);
+
+    try testing.expect(mem.containsAtLeast(u8, actual, 1,
+        \\alias test="cd /some/test/path"
+    ));
 }
