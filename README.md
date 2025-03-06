@@ -50,7 +50,7 @@ First, install [Zig](https://ziglang.org/download/). Next, run:
 $ zig build
 ```
 
-to install `dalia` in the `zig-out/bin` directory. Next, add the built executable to your path. Finally, add the
+to install `dalia` in the `zig-out/` directory. Next, add the built executable to your path. Finally, add the
 following line to your shell's configuration file to initialize all aliases:
 
 ```
