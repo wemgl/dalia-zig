@@ -1,6 +1,14 @@
-# Dalia
+dalia
+-----
 
 A small command-line utility for creating shell aliases to change directories without needing to type `cd`.
+
+### Documentation Quick Links
+* [Configuration](#configuration)
+* [Custom Alias Names](#custom-alias-names)
+* [Configuration File Example](#configuration-file-example)
+* [Installation](#installation)
+* [Customization](#customization)
 
 ## Configuration
 
