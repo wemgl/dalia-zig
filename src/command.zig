@@ -113,9 +113,9 @@ pub const Command = struct {
 
             if (subcommand) |subcmd| {
                 if (mem.eql(u8, "aliases", subcmd)) {
-                    self.print_aliases_usage(writer) catch fatal("dalia: help aliases failed to run.\n");
+                    self.printAliasesUsage(writer) catch fatal("dalia: help aliases failed to run.\n");
                 } else if (mem.eql(u8, "version", subcmd)) {
-                    self.print_version_usage(writer) catch fatal("dalia: help version failed to run.\n");
+                    self.printVersionUsage(writer) catch fatal("dalia: help version failed to run.\n");
                 } else {
                     const msg = try fmt.allocPrint(
                         self.allocator,
@@ -132,22 +132,22 @@ pub const Command = struct {
             if (subcommands.len == 2) {
                 fatal("dalia: version doesn't take any arguments.\n");
             }
-            self.print_version(writer) catch fatal("dalia: version command failed to run.\n");
+            self.printVersion(writer) catch fatal("dalia: version command failed to run.\n");
         } else if (mem.eql(u8, "aliases", subcommands[0])) {
             if (subcommands.len == 2) {
                 fatal("dalia: aliases doesn't take any arguments.\n");
             }
-            self.generate_aliases(writer) catch fatal("dalia: aliases command failed to run.\n");
+            self.generateAliases(writer) catch fatal("dalia: aliases command failed to run.\n");
         } else {
             should_print_usage = true;
         }
 
         if (should_print_usage) {
-            self.print_usage(writer) catch fatal("dalia: help command failed to run.\n");
+            self.printUsage(writer) catch fatal("dalia: help command failed to run.\n");
         }
     }
 
-    fn generate_aliases(self: *Command, writer: fs.File) !void {
+    fn generateAliases(self: *Command, writer: fs.File) !void {
         var config_dir = try fs.openDirAbsolute(self.config_path, .{});
         defer config_dir.close();
 
@@ -183,7 +183,7 @@ pub const Command = struct {
         }
     }
 
-    fn print_version(self: *Command, writer: fs.File) !void {
+    fn printVersion(self: *Command, writer: fs.File) !void {
         const output = try fmt.allocPrint(
             self.allocator,
             "dalia version {d}.{d}.{d}\n",
@@ -194,15 +194,15 @@ pub const Command = struct {
         try writer.writeAll(output);
     }
 
-    fn print_aliases_usage(_: *Command, writer: fs.File) !void {
+    fn printAliasesUsage(_: *Command, writer: fs.File) !void {
         try writer.writeAll(aliases_usage);
     }
 
-    fn print_version_usage(_: *Command, writer: fs.File) !void {
+    fn printVersionUsage(_: *Command, writer: fs.File) !void {
         try writer.writeAll(version_usage);
     }
 
-    fn print_usage(_: *Command, writer: fs.File) !void {
+    fn printUsage(_: *Command, writer: fs.File) !void {
         try writer.writeAll(usage);
     }
 };
