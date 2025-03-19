@@ -44,13 +44,17 @@ right from your shell.
 
 ## Installation
 
-First, install [Zig](https://ziglang.org/download/). Next, run:
+Archives of precompiled binaries are available for download
+via [GitHub Releases](https://github.com/wemgl/dalia-zig/releases) for macOS, Windows, and Linux.
+
+You can also download and build the code from source using the Zig build system. First,
+install [Zig](https://ziglang.org/download/). Next, run:
 
 ```
-$ zig build
+$ zig build --release=safe
 ```
 
-to install `dalia` in the `zig-out/` directory. Next, add the built executable to your path. Finally, add the
+to install `dalia` in the `zig-out/` directory. Then, add the built executable to your path. Finally, add the
 following line to your shell's configuration file to initialize all aliases:
 
 ```
