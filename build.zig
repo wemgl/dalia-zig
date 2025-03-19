@@ -41,8 +41,8 @@ pub fn build(b: *std.Build) !void {
         const triple = try target.zigTriple(b.allocator);
         const folder_name = try std.fmt.allocPrint(
             b.allocator,
-            "{s}-{s}",
-            .{"dalia", triple},
+            "{s}-{s}-{s}",
+            .{ "dalia", version, triple },
         );
         const target_output = b.addInstallArtifact(exe, .{
             .dest_dir = .{
